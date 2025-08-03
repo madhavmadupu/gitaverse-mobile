@@ -6,12 +6,15 @@ import {
   TouchableOpacity,
   StatusBar,
   TextInput,
+  Alert,
 } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { apiService } from '../../utils/api';
 import { useVerseStore } from '../../store/verseStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { hapticsService } from '../../utils/haptics';
 
 interface Chapter {
   id: number;
@@ -124,6 +127,25 @@ export default function LibraryScreen() {
   const handleBookmarkChapter = (chapterId: number) => {
     console.log('Bookmark chapter:', chapterId);
     // In a real app, you'd save this to Supabase
+  };
+
+  const handleShareChapter = async (chapter: Chapter) => {
+    try {
+      await hapticsService.buttonPress();
+      const shareText = `Bhagavad Gita Chapter ${chapter.number}: ${chapter.title}\n\nTheme: ${chapter.theme}\n\nExplore this chapter in Gitaverse - your daily spiritual companion! 📖✨\n\n#BhagavadGita #Chapter${chapter.number}`;
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(shareText);
+      } else {
+        Alert.alert('Share Chapter', shareText, [
+          { text: 'Copy', onPress: () => console.log('Copied to clipboard') },
+          { text: 'Cancel', style: 'cancel' }
+        ]);
+      }
+    } catch (error) {
+      console.error('Error sharing chapter:', error);
+      await hapticsService.errorAction();
+    }
   };
 
   const getProgressPercentage = (completed: number, total: number) => {
@@ -267,6 +289,13 @@ export default function LibraryScreen() {
                   onPress={() => handleBookmarkChapter(chapter.id)}
                 >
                   <Ionicons name="bookmark-outline" size={20} color="#6B7280" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="bg-gray-100 py-3 px-4 rounded-lg"
+                  onPress={() => handleShareChapter(chapter)}
+                >
+                  <Ionicons name="share-outline" size={20} color="#6B7280" />
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>

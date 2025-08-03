@@ -191,14 +191,32 @@ class ApiService {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) throw new Error('User not authenticated');
 
-      const { error } = await supabase
+      // First check if user_settings record exists
+      const { data: existingSettings } = await supabase
         .from('user_settings')
-        .upsert({
-          user_id: userId,
-          ...settings,
-        });
+        .select('id')
+        .eq('user_id', userId)
+        .single();
 
-      if (error) throw error;
+      if (existingSettings) {
+        // Update existing record
+        const { error } = await supabase
+          .from('user_settings')
+          .update(settings)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('user_settings')
+          .insert({
+            user_id: userId,
+            ...settings,
+          });
+
+        if (error) throw error;
+      }
     } catch (error) {
       console.error('Error updating user settings:', error);
       throw error;
@@ -236,6 +254,58 @@ class ApiService {
     } catch (error) {
       console.error('Error fetching verse explanation:', error);
       return 'No explanation available.';
+    }
+  }
+
+  // Check if user has completed onboarding
+  async hasCompletedOnboarding(): Promise<boolean> {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      console.log('Checking onboarding for user:', user?.id);
+      if (!user) return false;
+
+      // Check if user has spiritual_level in metadata
+      const hasSpiritualLevel = !!(user.user_metadata?.spiritual_level);
+      console.log('Has spiritual level:', hasSpiritualLevel, 'Value:', user.user_metadata?.spiritual_level);
+
+      // Check if user has daily reminder time in user_settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('daily_reminder_time')
+        .eq('user_id', user.id)
+        .single();
+
+      console.log('User settings data:', settingsData, 'Error:', settingsError);
+      const hasReminderTime = !!(settingsData?.daily_reminder_time);
+      console.log('Has reminder time:', hasReminderTime, 'Value:', settingsData?.daily_reminder_time);
+
+      // Check if user has set their spiritual level and daily reminder time
+      const hasCompleted = hasSpiritualLevel && hasReminderTime;
+      console.log('Onboarding completed:', hasCompleted);
+      return hasCompleted;
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      return false;
+    }
+  }
+
+  // Get user profile
+  async getUserProfile() {
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      throw error;
     }
   }
 

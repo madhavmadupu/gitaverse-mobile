@@ -1,8 +1,28 @@
 import { Link, Tabs } from 'expo-router';
 import { View, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useState, useEffect } from 'react';
+import { speechService } from '../../utils/speech';
+import SpeechPlayer from '../../components/SpeechPlayer';
 
 export default function TabLayout() {
+  const [showSpeechPlayer, setShowSpeechPlayer] = useState(false);
+
+  useEffect(() => {
+    const checkSpeechStatus = () => {
+      const isPlaying = speechService.isCurrentlyPlaying();
+      setShowSpeechPlayer(isPlaying);
+    };
+
+    // Check status immediately
+    checkSpeechStatus();
+
+    // Set up interval to check status
+    const interval = setInterval(checkSpeechStatus, 500);
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <Tabs
@@ -73,7 +93,25 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "settings" : "settings-outline"}
+              size={24}
+              color={color}
+            />
+          ),
+        }}
+      />
       </Tabs>
+
+      <SpeechPlayer
+        isVisible={showSpeechPlayer}
+        onClose={() => setShowSpeechPlayer(false)}
+      />
     </SafeAreaView>
   );
 }

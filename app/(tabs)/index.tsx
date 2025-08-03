@@ -5,11 +5,15 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from 'react-native';
+import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useVerseStore } from '../../store/verseStore';
 import { apiService } from '../../utils/api';
+import { hapticsService } from '../../utils/haptics';
+import { speechService } from '../../utils/speech';
 import VerseCard from '../../components/VerseCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -50,10 +54,12 @@ export default function TodayScreen() {
   const handleMarkAsRead = async () => {
     if (todayVerse) {
       try {
+        await hapticsService.verseCompletion();
         await apiService.markVerseAsRead(todayVerse.id, 300); // 5 minutes
         markAsRead(todayVerse.id);
       } catch (error) {
         console.error('Error marking verse as read:', error);
+        await hapticsService.errorAction();
       }
     }
   };
@@ -61,32 +67,57 @@ export default function TodayScreen() {
   const handleShare = async () => {
     if (todayVerse) {
       try {
+        await hapticsService.buttonPress();
         const shareText = `Today's Bhagavad Gita Verse:\n\n"${todayVerse.translation}"\n\nChapter ${todayVerse.chapter}, Verse ${todayVerse.verse}\n\n#BhagavadGita #DailyWisdom`;
 
-        // For now, we'll use console.log, but in a real app you'd use expo-sharing
-        console.log('Sharing verse:', shareText);
-        // await Share.share({ message: shareText });
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(shareText, {
+            mimeType: 'text/plain',
+            dialogTitle: 'Share Today\'s Verse',
+          });
+        } else {
+          Alert.alert('Share Verse', shareText, [
+            { text: 'Copy', onPress: () => console.log('Copied to clipboard') },
+            { text: 'Cancel', style: 'cancel' }
+          ]);
+        }
       } catch (error) {
         console.error('Error sharing verse:', error);
+        await hapticsService.errorAction();
       }
     }
   };
 
-  const handleFavorite = () => {
+  const handleFavorite = async () => {
     if (todayVerse) {
-      toggleFavorite(todayVerse.id);
+      try {
+        await hapticsService.buttonPress();
+        toggleFavorite(todayVerse.id);
+      } catch (error) {
+        console.error('Error toggling favorite:', error);
+        await hapticsService.errorAction();
+      }
     }
   };
 
   const handlePlayAudio = async () => {
-    if (todayVerse?.audioUrl) {
+    if (todayVerse) {
       try {
-        console.log('Playing audio for verse:', todayVerse.id);
-        // In a real app, you'd use expo-av to play audio
-        // const { sound } = await Audio.Sound.createAsync({ uri: todayVerse.audioUrl });
-        // await sound.playAsync();
+        await hapticsService.buttonPress();
+        console.log('Playing TTS for verse:', todayVerse.id);
+
+        // Use speech service for text-to-speech
+        const textToSpeak = `${todayVerse.translation}`;
+        await speechService.speak(textToSpeak, {
+          language: 'en-US',
+          pitch: 1.0,
+          rate: 0.8,
+          onDone: () => console.log('TTS finished'),
+          onError: (error) => console.error('TTS error:', error),
+        });
       } catch (error) {
         console.error('Error playing audio:', error);
+        await hapticsService.errorAction();
       }
     }
   };
@@ -126,7 +157,7 @@ export default function TodayScreen() {
               🔥 {userProgress.currentStreak} day streak
             </Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')}>
             <Ionicons name="settings-outline" size={24} color="#6B7280" />
           </TouchableOpacity>
         </View>

@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StatusBar,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVerseStore } from '../../store/verseStore';
@@ -82,6 +83,15 @@ export default function ProgressScreen() {
     return Math.min((progress / target) * 100, 100);
   };
 
+  const handleShareProgress = () => {
+    const shareText = `My Bhagavad Gita Progress:\n\n🔥 ${stats.currentStreak} day streak\n📖 ${stats.totalVerses} verses completed\n📚 ${stats.totalChapters} chapters explored\n⏱️ ${stats.totalTime} minutes of spiritual study\n\nJoin me on Gitaverse - your daily spiritual companion! 📖✨\n\n#BhagavadGita #SpiritualJourney #Gitaverse`;
+
+    Alert.alert('Share Progress', shareText, [
+      { text: 'Copy', onPress: () => console.log('Copied to clipboard') },
+      { text: 'Cancel', style: 'cancel' }
+    ]);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" />
@@ -103,7 +113,15 @@ export default function ProgressScreen() {
             <Text className="text-white text-lg font-semibold">
               Current Streak
             </Text>
-            <Ionicons name="flame" size={24} color="#FFFFFF" />
+            <View className="flex-row items-center">
+              <TouchableOpacity
+                onPress={handleShareProgress}
+                className="mr-3 p-2 rounded-full bg-white bg-opacity-20"
+              >
+                <Ionicons name="share-outline" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+              <Ionicons name="flame" size={24} color="#FFFFFF" />
+            </View>
           </View>
           
           <View className="flex-row items-end mb-2">

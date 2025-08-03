@@ -4,6 +4,7 @@
     "slug": "gitaverse-mobile",
     "version": "1.0.0",
     "scheme": "gitaverse-mobile",
+    "projectId": "your-expo-project-id",
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -17,7 +18,15 @@
           "launchMode": "most-recent"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#F97316",
+          "sounds": ["./assets/temple-bell.wav"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

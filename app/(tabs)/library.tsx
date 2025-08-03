@@ -107,11 +107,33 @@ export default function LibraryScreen() {
       const chaptersData = await apiService.getChapters();
 
       if (chaptersData && chaptersData.length > 0) {
-        // Add completedVerses property to each chapter
-        const chaptersWithProgress: ChapterWithProgress[] = chaptersData.map(chapter => ({
-          ...chapter,
-          completedVerses: Math.floor(Math.random() * (chapter.verse_count || 0)), // Mock progress for now
-        }));
+        // Get user progress to calculate real completion
+        const userProgress = await apiService.getUserProgress();
+        
+        // Calculate completed verses for each chapter
+        const chaptersWithProgress: ChapterWithProgress[] = await Promise.all(
+          chaptersData.map(async (chapter) => {
+            try {
+              // Get verses for this chapter to count completed ones
+              const chapterVerses = await apiService.getVersesByChapter(chapter.chapter_number);
+              const completedVerses = chapterVerses?.filter(verse => 
+                userProgress.completedVerses.includes(verse.id)
+              ).length || 0;
+              
+              return {
+                ...chapter,
+                completedVerses,
+              };
+            } catch (error) {
+              console.error(`Error getting progress for chapter ${chapter.chapter_number}:`, error);
+              return {
+                ...chapter,
+                completedVerses: 0,
+              };
+            }
+          })
+        );
+        
         setChapters(chaptersWithProgress);
         setLoadingState('success');
       } else {

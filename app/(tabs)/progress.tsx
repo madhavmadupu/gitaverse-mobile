@@ -4,11 +4,11 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVerseStore } from '../../store/verseStore';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Achievement {
   id: string;

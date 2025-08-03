@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Switch,
   Alert,
@@ -14,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useVerseStore } from '../../store/verseStore';
 import { apiService } from '../../utils/api';
 import { supabase } from '../../utils/supabase';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface SettingItem {
   id: string;

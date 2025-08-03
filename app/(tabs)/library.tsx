@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   TextInput,
 } from 'react-native';
@@ -12,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { apiService } from '../../utils/api';
 import { useVerseStore } from '../../store/verseStore';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Chapter {
   id: number;

@@ -156,9 +156,19 @@ class ApiService {
   // Get all chapters
   async getChapters() {
     try {
-      const { data, error } = await supabase.from('chapters').select('*').order('id');
+      const { data, error } = await supabase.from('chapters').select('*').order('chapter_number');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching chapters:', error);
+        return this.getMockChapters();
+      }
+      
+      // If no chapters found in database, return mock data
+      if (!data || data.length === 0) {
+        console.log('No chapters found in database, using mock data');
+        return this.getMockChapters();
+      }
+      
       return data;
     } catch (error) {
       console.error('Error fetching chapters:', error);
@@ -167,8 +177,44 @@ class ApiService {
   }
 
   // Get verses by chapter
-  async getVersesByChapter(chapterId: number) {
-    return this.request(`chapters/${chapterId}/verses`);
+  async getVersesByChapter(chapterId: number): Promise<Verse[]> {
+    try {
+      // First, get the chapter UUID by chapter_number
+      const { data: chapter, error: chapterError } = await supabase
+        .from('chapters')
+        .select('id')
+        .eq('chapter_number', chapterId)
+        .single();
+
+      if (chapterError) {
+        console.error('Error fetching chapter:', chapterError);
+        // Return mock data for development
+        return this.getMockVersesByChapter(chapterId);
+      }
+
+      if (!chapter) {
+        console.log('Chapter not found, returning mock data');
+        return this.getMockVersesByChapter(chapterId);
+      }
+
+      // Now get verses using the chapter UUID
+      const { data: verses, error: versesError } = await supabase
+        .from('verses')
+        .select('*')
+        .eq('chapter_id', chapter.id)
+        .order('verse_number');
+
+      if (versesError) {
+        console.error('Error fetching verses:', versesError);
+        return this.getMockVersesByChapter(chapterId);
+      }
+
+      return verses || [];
+    } catch (error) {
+      console.error('Error fetching verses by chapter:', error);
+      // Return mock data for development
+      return this.getMockVersesByChapter(chapterId);
+    }
   }
 
   // Mark verse as read
@@ -593,6 +639,69 @@ class ApiService {
         created_at: new Date().toISOString(),
       },
     ];
+  }
+
+  getMockVersesByChapter(chapterId: number): Verse[] {
+    const mockVerses: { [key: number]: Verse[] } = {
+      1: [
+        {
+          id: '1-1',
+          chapter_id: 'mock-chapter-1',
+          verse_number: 1,
+          sanskrit_text: 'धृतराष्ट्र उवाच | धर्मक्षेत्रे कुरुक्षेत्रे समवेता युयुत्सवः | मामकाः पाण्डवाश्चैव किमकुर्वत सञ्जय ||',
+          english_translation: 'Dhritarashtra said: O Sanjaya, what did my sons and the sons of Pandu do when they had assembled together, eager for battle, on the holy plain of Kurukshetra?',
+          hindi_translation: 'धृतराष्ट्र ने कहा: हे संजय, मेरे पुत्रों और पांडु के पुत्रों ने क्या किया जब वे युद्ध के लिए उत्सुक होकर कुरुक्षेत्र के पवित्र मैदान में एकत्र हुए?',
+          difficulty_level: 'beginner',
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: '1-2',
+          chapter_id: 'mock-chapter-1',
+          verse_number: 2,
+          sanskrit_text: 'सञ्जय उवाच | दृष्ट्वा तु पाण्डवानीकं व्यूढं दुर्योधनस्तदा | आचार्यमुपसङ्गम्य राजा वचनमब्रवीत् ||',
+          english_translation: 'Sanjaya said: Having seen the army of the Pandavas drawn up in battle array, King Duryodhana then approached his teacher (Drona) and spoke these words.',
+          hindi_translation: 'संजय ने कहा: पांडवों की सेना को युद्ध के लिए तैयार देखकर, राजा दुर्योधन ने अपने गुरु (द्रोण) के पास जाकर ये शब्द कहे।',
+          difficulty_level: 'beginner',
+          created_at: new Date().toISOString(),
+        },
+      ],
+      2: [
+        {
+          id: '2-47',
+          chapter_id: 'mock-chapter-2',
+          verse_number: 47,
+          sanskrit_text: 'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन। मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥',
+          english_translation: 'You have the right to work only, but never to its fruits. Let not the fruits of action be your motive, nor let your attachment be to inaction.',
+          hindi_translation: 'तुम्हारा कर्म करने में ही अधिकार है, फल में कभी नहीं। कर्म के फल का हेतु मत बनो और कर्म न करने में भी आसक्ति मत रखो।',
+          difficulty_level: 'intermediate',
+          created_at: new Date().toISOString(),
+        },
+        {
+          id: '2-48',
+          chapter_id: 'mock-chapter-2',
+          verse_number: 48,
+          sanskrit_text: 'योग: कर्मसु कौशलम् |',
+          english_translation: 'Yoga is skill in action.',
+          hindi_translation: 'योग कर्म में कुशलता है।',
+          difficulty_level: 'beginner',
+          created_at: new Date().toISOString(),
+        },
+      ],
+      3: [
+        {
+          id: '3-1',
+          chapter_id: 'mock-chapter-3',
+          verse_number: 1,
+          sanskrit_text: 'अर्जुन उवाच | ज्यायसी चेत्कर्मणस्ते मता बुद्धिर्जनार्दन | तत्किं कर्मणि घोरे मां नियोजयसि केशव ||',
+          english_translation: 'Arjuna said: O Janardana, if You consider that knowledge is superior to action, why do You urge me to this terrible action, O Kesava?',
+          hindi_translation: 'अर्जुन ने कहा: हे जनार्दन, यदि आप ज्ञान को कर्म से श्रेष्ठ मानते हैं, तो हे केशव, आप मुझे इस भयंकर कर्म में क्यों प्रेरित कर रहे हैं?',
+          difficulty_level: 'intermediate',
+          created_at: new Date().toISOString(),
+        },
+      ],
+    };
+
+    return mockVerses[chapterId] || [];
   }
 }
 

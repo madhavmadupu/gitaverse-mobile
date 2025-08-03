@@ -17,62 +17,73 @@ import { apiService } from '../../utils/api';
 import { useVerseStore } from '../../store/verseStore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { hapticsService } from '../../utils/haptics';
+import { Chapter } from '../../types';
 
-interface Chapter {
-  id: number;
-  chapter_number: number;
-  title: string;
-  titleSanskrit: string;
-  verse_count: number;
+// Extended interface for library display with progress
+interface ChapterWithProgress extends Chapter {
   completedVerses: number;
-  theme: string;
 }
 
-const mockChapters: Chapter[] = [
+const mockChapters: ChapterWithProgress[] = [
   {
-    id: 1,
+    id: 'mock-chapter-1',
     chapter_number: 1,
-    title: 'Arjuna Vishada Yoga',
-    titleSanskrit: 'अर्जुन विषाद योग',
+    title_english: 'Arjuna Vishada Yoga',
+    title_sanskrit: 'अर्जुन विषाद योग',
+    title_hindi: 'अर्जुन विषाद योग',
+    description: 'The Yoga of Arjuna\'s Dejection',
     verse_count: 47,
-    completedVerses: 12,
     theme: 'The Yoga of Arjuna\'s Dejection',
+    created_at: new Date().toISOString(),
+    completedVerses: 12,
   },
   {
-    id: 2,
+    id: 'mock-chapter-2',
     chapter_number: 2,
-    title: 'Sankhya Yoga',
-    titleSanskrit: 'सांख्य योग',
+    title_english: 'Sankhya Yoga',
+    title_sanskrit: 'सांख्य योग',
+    title_hindi: 'सांख्य योग',
+    description: 'Transcendental Knowledge',
     verse_count: 72,
-    completedVerses: 25,
     theme: 'Transcendental Knowledge',
+    created_at: new Date().toISOString(),
+    completedVerses: 25,
   },
   {
-    id: 3,
+    id: 'mock-chapter-3',
     chapter_number: 3,
-    title: 'Karma Yoga',
-    titleSanskrit: 'कर्म योग',
+    title_english: 'Karma Yoga',
+    title_sanskrit: 'कर्म योग',
+    title_hindi: 'कर्म योग',
+    description: 'The Eternal Duties of Human Beings',
     verse_count: 43,
+    theme: 'The Eternal Duties of Human Beings',
+    created_at: new Date().toISOString(),
     completedVerses: 8,
-    theme: 'The Eternal Duties of Human Beings',
   },
   {
-    id: 4,
+    id: 'mock-chapter-4',
     chapter_number: 4,
-    title: 'Jnana Karma Sanyasa Yoga',
-    titleSanskrit: 'ज्ञान कर्म संन्यास योग',
+    title_english: 'Jnana Karma Sanyasa Yoga',
+    title_sanskrit: 'ज्ञान कर्म संन्यास योग',
+    title_hindi: 'ज्ञान कर्म संन्यास योग',
+    description: 'The Eternal Duties of Human Beings',
     verse_count: 42,
-    completedVerses: 15,
     theme: 'The Eternal Duties of Human Beings',
+    created_at: new Date().toISOString(),
+    completedVerses: 15,
   },
   {
-    id: 5,
+    id: 'mock-chapter-5',
     chapter_number: 5,
-    title: 'Karma Sanyasa Yoga',
-    titleSanskrit: 'कर्म संन्यास योग',
+    title_english: 'Karma Sanyasa Yoga',
+    title_sanskrit: 'कर्म संन्यास योग',
+    title_hindi: 'कर्म संन्यास योग',
+    description: 'Action in Krishna Consciousness',
     verse_count: 29,
-    completedVerses: 5,
     theme: 'Action in Krishna Consciousness',
+    created_at: new Date().toISOString(),
+    completedVerses: 5,
   },
 ];
 
@@ -82,7 +93,7 @@ export default function LibraryScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [chapters, setChapters] = useState<ChapterWithProgress[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingState>('loading');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { userProgress } = useVerseStore();
@@ -96,7 +107,12 @@ export default function LibraryScreen() {
       const chaptersData = await apiService.getChapters();
 
       if (chaptersData && chaptersData.length > 0) {
-        setChapters(chaptersData);
+        // Add completedVerses property to each chapter
+        const chaptersWithProgress: ChapterWithProgress[] = chaptersData.map(chapter => ({
+          ...chapter,
+          completedVerses: Math.floor(Math.random() * (chapter.verse_count || 0)), // Mock progress for now
+        }));
+        setChapters(chaptersWithProgress);
         setLoadingState('success');
       } else {
         setChapters([]);
@@ -130,9 +146,9 @@ export default function LibraryScreen() {
     // Apply search filter
     if (searchQuery.trim()) {
       filtered = filtered.filter(chapter =>
-        chapter.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        chapter.theme.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        chapter.titleSanskrit.toLowerCase().includes(searchQuery.toLowerCase())
+        chapter.title_english.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (chapter.theme?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        chapter.title_sanskrit.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
@@ -140,18 +156,18 @@ export default function LibraryScreen() {
     switch (selectedFilter) {
       case 'in-progress':
         filtered = filtered.filter(chapter =>
-          chapter.completedVerses > 0 && chapter.completedVerses < chapter.verse_count
+          chapter.completedVerses > 0 && chapter.completedVerses < (chapter.verse_count || 0)
         );
         break;
       case 'completed':
         filtered = filtered.filter(chapter =>
-          chapter.completedVerses === chapter.verse_count
+          chapter.completedVerses === (chapter.verse_count || 0)
         );
         break;
       case 'favorites':
         // For now, show chapters with high completion as "favorites"
         filtered = filtered.filter(chapter =>
-          chapter.completedVerses > chapter.verse_count * 0.5
+          chapter.completedVerses > (chapter.verse_count || 0) * 0.5
         );
         break;
       default:
@@ -164,28 +180,28 @@ export default function LibraryScreen() {
 
   const filteredChapters = getFilteredChapters();
 
-  const handleChapterPress = (chapterId: number) => {
+  const handleChapterPress = (chapterId: string) => {
     hapticsService.buttonPress();
     console.log('Navigate to chapter:', chapterId);
-    // router.push(`/chapter/${chapterId}`);
+    router.push(`/modal?type=chapter&chapterId=${chapterId}`);
   };
 
-  const handleContinueReading = (chapterId: number) => {
+  const handleContinueReading = (chapterId: string) => {
     hapticsService.buttonPress();
     console.log('Continue reading chapter:', chapterId);
-    // router.push(`/chapter/${chapterId}`);
+    router.push(`/modal?type=chapter&chapterId=${chapterId}`);
   };
 
-  const handleBookmarkChapter = (chapterId: number) => {
+  const handleBookmarkChapter = (chapterId: string) => {
     hapticsService.buttonPress();
     console.log('Bookmark chapter:', chapterId);
     // In a real app, you'd save this to Supabase
   };
 
-  const handleShareChapter = async (chapter: Chapter) => {
+  const handleShareChapter = async (chapter: ChapterWithProgress) => {
     try {
       await hapticsService.buttonPress();
-      const shareText = `Bhagavad Gita Chapter ${chapter.chapter_number}: ${chapter.title}\n\nTheme: ${chapter.theme}\n\nExplore this chapter in Gitaverse - your daily spiritual companion! 📖✨\n\n#BhagavadGita #Chapter${chapter.chapter_number}`;
+      const shareText = `Bhagavad Gita Chapter ${chapter.chapter_number}: ${chapter.title_english}\n\nTheme: ${chapter.theme || chapter.description}\n\nExplore this chapter in Gitaverse - your daily spiritual companion! 📖✨\n\n#BhagavadGita #Chapter${chapter.chapter_number}`;
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(shareText);
@@ -440,14 +456,14 @@ export default function LibraryScreen() {
         {filteredChapters.map((chapter) => {
           const progressPercentage = getProgressPercentage(
             chapter.completedVerses,
-            chapter.verse_count
+            chapter.verse_count || 0
           );
 
           return (
             <TouchableOpacity
               key={chapter.id}
               className="bg-white rounded-2xl p-6 mb-4 shadow-sm"
-              onPress={() => handleChapterPress(chapter.id)}
+              onPress={() => handleChapterPress(chapter.chapter_number.toString())}
             >
               <View className="flex-row justify-between items-start mb-3">
                 <View className="flex-1">
@@ -455,22 +471,22 @@ export default function LibraryScreen() {
                     Chapter {chapter.chapter_number}
                   </Text>
                   <Text className="text-base text-gray-700 mb-1">
-                    {chapter.title}
+                    {chapter.title_english}
                   </Text>
                   <Text className="text-sm text-orange-600 font-medium">
-                    {chapter.titleSanskrit}
+                    {chapter.title_sanskrit}
                   </Text>
                 </View>
 
                 <View className="bg-orange-100 px-3 py-1 rounded-full">
                   <Text className="text-orange-600 font-semibold text-sm">
-                    {chapter.completedVerses}/{chapter.verse_count}
+                    {chapter.completedVerses}/{chapter.verse_count || 0}
                   </Text>
                 </View>
               </View>
 
               <Text className="text-sm text-gray-600 mb-4">
-                {chapter.theme}
+                {chapter.theme || chapter.description}
               </Text>
 
               {/* Progress Bar */}
@@ -495,7 +511,7 @@ export default function LibraryScreen() {
               <View className="flex-row space-x-3">
                 <TouchableOpacity
                   className="flex-1 bg-orange-500 py-3 rounded-lg"
-                  onPress={() => handleContinueReading(chapter.id)}
+                  onPress={() => handleContinueReading(chapter.chapter_number.toString())}
                 >
                   <Text className="text-white text-center font-semibold">
                     {chapter.completedVerses === 0 ? 'Start Reading' : 'Continue Reading'}

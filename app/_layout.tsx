@@ -31,12 +31,14 @@ function useProtectedRoute(session: Session | null, hasCompletedOnboarding: bool
     const timeoutId = setTimeout(() => {
       const inAuthGroup = segments[0] === '(auth)';
       const inTabsGroup = segments[0] === '(tabs)';
+      const isOnboarding = segments[1] === 'onboarding';
 
       console.log('Route guard check:', {
         session: !!session,
         hasCompletedOnboarding,
         inAuthGroup,
         inTabsGroup,
+        isOnboarding,
         segments
       });
 
@@ -44,7 +46,7 @@ function useProtectedRoute(session: Session | null, hasCompletedOnboarding: bool
         // User is not authenticated and trying to access protected route
         console.log('Redirecting to auth - no session');
         router.replace('/(auth)/welcome' as any);
-      } else if (session && inAuthGroup && segments[1] !== 'onboarding') {
+      } else if (session && inAuthGroup && !isOnboarding) {
         // User is authenticated but still in auth group (not in onboarding)
         if (hasCompletedOnboarding) {
           console.log('Redirecting to tabs - authenticated and onboarded');

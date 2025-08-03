@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../utils/supabase';
+import { apiService } from '../../utils/api';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -69,6 +70,18 @@ export default function SignUpScreen() {
       if (error) {
         Alert.alert('Error', error.message);
       } else {
+        // Create user record in users table
+        if (data.user) {
+          await apiService.createUserRecord(
+            data.user.id,
+            data.user.email!,
+            {
+              username: formData.username,
+              full_name: formData.username,
+            }
+          );
+        }
+
         Alert.alert(
           'Success!',
           'Please check your email to verify your account before signing in.',

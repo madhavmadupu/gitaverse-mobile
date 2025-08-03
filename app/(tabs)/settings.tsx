@@ -7,6 +7,7 @@ import {
   Switch,
   StatusBar,
   Alert,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -78,7 +79,7 @@ export default function SettingsScreen() {
     try {
       setIsLoading(true);
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      
+
       if (authUser) {
         const userProfile: UserProfile = {
           id: authUser.id,
@@ -101,11 +102,11 @@ export default function SettingsScreen() {
       await hapticsService.buttonPress();
       const newSettings = { ...notificationSettings, enabled };
       setNotificationSettings(newSettings);
-      
+
       if (enabled) {
         await notificationService.initialize();
       }
-      
+
       await notificationService.scheduleDailyReminder(newSettings);
     } catch (error) {
       console.error('Error updating notification settings:', error);
@@ -185,10 +186,16 @@ export default function SettingsScreen() {
   const handleShareApp = async () => {
     try {
       await hapticsService.buttonPress();
-      const shareText = 'Check out Gitaverse - a beautiful Bhagavad Gita daily learning app! 📖✨\n\nDownload now and start your spiritual journey.';
+      const shareText = 'Check out Gitaverse - a beautiful Bhagavad Gita daily learning app! 📖✨\n\nDownload now and start your spiritual journey. \n\n https://gitaverse.vercel.app';
 
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(shareText);
+        await Share.share(
+          {
+            message: shareText,
+            title: 'Gitaverse',
+            url: 'https://gitaverse.vercel.app',
+          }
+        );
       } else {
         Alert.alert('Share App', shareText, [
           { text: 'Copy', onPress: () => console.log('Copied to clipboard') },
@@ -356,19 +363,18 @@ export default function SettingsScreen() {
       onPress={item.onPress}
     >
       <View className="flex-row items-center flex-1">
-        <View className={`w-10 h-10 rounded-full justify-center items-center mr-3 ${
-          item.id === 'delete-account' ? 'bg-red-100' : 
-          item.id === 'sign-out' ? 'bg-orange-100' : 
-          'bg-gray-100'
-        }`}>
-          <Ionicons 
-            name={item.icon as any} 
-            size={20} 
+        <View className={`w-10 h-10 rounded-full justify-center items-center mr-3 ${item.id === 'delete-account' ? 'bg-red-100' :
+            item.id === 'sign-out' ? 'bg-orange-100' :
+              'bg-gray-100'
+          }`}>
+          <Ionicons
+            name={item.icon as any}
+            size={20}
             color={
-              item.id === 'delete-account' ? '#EF4444' : 
-              item.id === 'sign-out' ? '#F97316' : 
-              '#6B7280'
-            } 
+              item.id === 'delete-account' ? '#EF4444' :
+                item.id === 'sign-out' ? '#F97316' :
+                  '#6B7280'
+            }
           />
         </View>
         <View className="flex-1">
@@ -382,7 +388,7 @@ export default function SettingsScreen() {
           )}
         </View>
       </View>
-      
+
       {item.type === 'toggle' && (
         <Switch
           value={item.value}
@@ -391,12 +397,12 @@ export default function SettingsScreen() {
           thumbColor={item.value ? '#FFFFFF' : '#FFFFFF'}
         />
       )}
-      
+
       {item.type === 'action' && (
-        <Ionicons 
-          name="chevron-forward" 
-          size={20} 
-          color={isDark ? '#9CA3AF' : '#6B7280'} 
+        <Ionicons
+          name="chevron-forward"
+          size={20}
+          color={isDark ? '#9CA3AF' : '#6B7280'}
         />
       )}
     </TouchableOpacity>
@@ -430,7 +436,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView className={`flex-1 ${bgColor}`}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      
+
       {/* Header */}
       <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-200">
         <TouchableOpacity
@@ -439,9 +445,9 @@ export default function SettingsScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#374151" />
         </TouchableOpacity>
-        
+
         <Text className={`text-xl font-bold ${textColor}`}>Settings</Text>
-        
+
         <View className="w-10" />
       </View>
 
@@ -465,7 +471,7 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
-            
+
             <TouchableOpacity
               onPress={() => {
                 hapticsService.navigation();

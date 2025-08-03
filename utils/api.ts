@@ -10,12 +10,9 @@ class ApiService {
     this.baseUrl = API_BASE_URL;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -26,11 +23,11 @@ class ApiService {
 
     try {
       const response = await fetch(url, config);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error('API request failed:', error);
@@ -66,7 +63,7 @@ class ApiService {
       // Fallback to mock data if no daily verse found
       return this.getMockTodayVerse();
     } catch (error) {
-      console.error('Error fetching today\'s verse:', error);
+      console.error("Error fetching today's verse:", error);
       return this.getMockTodayVerse();
     }
   }
@@ -74,11 +71,7 @@ class ApiService {
   // Get verse by ID
   async getVerse(verseId: string): Promise<Verse> {
     try {
-      const { data, error } = await supabase
-        .from('verses')
-        .select('*')
-        .eq('id', verseId)
-        .single();
+      const { data, error } = await supabase.from('verses').select('*').eq('id', verseId).single();
 
       if (error) throw error;
       return data as Verse;
@@ -91,10 +84,7 @@ class ApiService {
   // Get all chapters
   async getChapters() {
     try {
-      const { data, error } = await supabase
-        .from('chapters')
-        .select('*')
-        .order('id');
+      const { data, error } = await supabase.from('chapters').select('*').order('id');
 
       if (error) throw error;
       return data;
@@ -112,14 +102,12 @@ class ApiService {
   // Mark verse as read
   async markVerseAsRead(verseId: string, timeSpent: number) {
     try {
-      const { error } = await supabase
-        .from('user_progress')
-        .upsert({
-          verse_id: verseId,
-          time_spent: timeSpent,
-          read_at: new Date().toISOString(),
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-        });
+      const { error } = await supabase.from('user_progress').upsert({
+        verse_id: verseId,
+        time_spent_seconds: timeSpent,
+        completed_at: new Date().toISOString(),
+        user_id: (await supabase.auth.getUser()).data.user?.id,
+      });
 
       if (error) throw error;
     } catch (error) {
@@ -152,8 +140,10 @@ class ApiService {
 
       // Calculate progress from data
       const totalVerses = data?.length || 0;
-      const lastReadDate = data?.length > 0 ?
-        new Date(Math.max(...data.map(d => new Date(d.read_at).getTime()))) : null;
+      const lastReadDate =
+        data?.length > 0
+          ? new Date(Math.max(...data.map((d) => new Date(d.read_at).getTime())))
+          : null;
 
       // Calculate streak (simplified)
       let currentStreak = 0;
@@ -188,14 +178,41 @@ class ApiService {
   // Update user settings
   async updateUserSettings(settings: any) {
     try {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      if (!userId) throw new Error('User not authenticated');
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      // Ensure user record exists in users table
+      const { data: existingUser, error: userCheckError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (!existingUser) {
+        // Create user record if it doesn't exist
+        const { error: insertError } = await supabase.from('users').insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name,
+          spiritual_level: user.user_metadata?.spiritual_level || 'beginner',
+        });
+
+        if (insertError) {
+          console.error('Error creating user record:', insertError);
+          throw new Error(`Failed to create user record: ${insertError.message}`);
+        }
+
+        console.log('User record created successfully');
+      }
 
       // First check if user_settings record exists
       const { data: existingSettings } = await supabase
         .from('user_settings')
         .select('id')
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .single();
 
       if (existingSettings) {
@@ -203,17 +220,15 @@ class ApiService {
         const { error } = await supabase
           .from('user_settings')
           .update(settings)
-          .eq('user_id', userId);
+          .eq('user_id', user.id);
 
         if (error) throw error;
       } else {
         // Insert new record
-        const { error } = await supabase
-          .from('user_settings')
-          .insert({
-            user_id: userId,
-            ...settings,
-          });
+        const { error } = await supabase.from('user_settings').insert({
+          user_id: user.id,
+          ...settings,
+        });
 
         if (error) throw error;
       }
@@ -260,13 +275,21 @@ class ApiService {
   // Check if user has completed onboarding
   async hasCompletedOnboarding(): Promise<boolean> {
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
       console.log('Checking onboarding for user:', user?.id);
       if (!user) return false;
 
       // Check if user has spiritual_level in metadata
-      const hasSpiritualLevel = !!(user.user_metadata?.spiritual_level);
-      console.log('Has spiritual level:', hasSpiritualLevel, 'Value:', user.user_metadata?.spiritual_level);
+      const hasSpiritualLevel = !!user.user_metadata?.spiritual_level;
+      console.log(
+        'Has spiritual level:',
+        hasSpiritualLevel,
+        'Value:',
+        user.user_metadata?.spiritual_level
+      );
 
       // Check if user has daily reminder time in user_settings
       const { data: settingsData, error: settingsError } = await supabase
@@ -276,8 +299,13 @@ class ApiService {
         .single();
 
       console.log('User settings data:', settingsData, 'Error:', settingsError);
-      const hasReminderTime = !!(settingsData?.daily_reminder_time);
-      console.log('Has reminder time:', hasReminderTime, 'Value:', settingsData?.daily_reminder_time);
+      const hasReminderTime = !!settingsData?.daily_reminder_time;
+      console.log(
+        'Has reminder time:',
+        hasReminderTime,
+        'Value:',
+        settingsData?.daily_reminder_time
+      );
 
       // Check if user has set their spiritual level and daily reminder time
       const hasCompleted = hasSpiritualLevel && hasReminderTime;
@@ -289,17 +317,42 @@ class ApiService {
     }
   }
 
+  // Create user record in users table
+  async createUserRecord(userId: string, email: string, metadata: any = {}) {
+    try {
+      console.log('Creating user record for:', userId, email);
+
+      const { error } = await supabase.from('users').insert({
+        id: userId,
+        email: email,
+        full_name: metadata.full_name || metadata.username,
+        spiritual_level: metadata.spiritual_level || 'beginner',
+      });
+
+      if (error) {
+        console.error('Error creating user record:', error);
+        // Check if it's a duplicate key error
+        if (error.code === '23505') {
+          console.log('User record already exists, skipping creation');
+          return;
+        }
+        throw error;
+      }
+
+      console.log('User record created successfully');
+    } catch (error) {
+      console.error('Error creating user record:', error);
+      throw error;
+    }
+  }
+
   // Get user profile
   async getUserProfile() {
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) throw new Error('User not authenticated');
 
-      const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      const { data, error } = await supabase.from('users').select('*').eq('id', userId).single();
 
       if (error) throw error;
       return data;
@@ -316,8 +369,10 @@ class ApiService {
       chapter: 2,
       verse: 47,
       sanskrit: 'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन। मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥',
-      translation: 'You have the right to work only, but never to its fruits. Let not the fruits of action be your motive, nor let your attachment be to inaction.',
-      explanation: 'This verse teaches us the principle of Karma Yoga - the yoga of selfless action. It reminds us to focus on our duties and responsibilities without being attached to the results. When we perform our actions with dedication but without expecting specific outcomes, we find inner peace and spiritual growth.',
+      translation:
+        'You have the right to work only, but never to its fruits. Let not the fruits of action be your motive, nor let your attachment be to inaction.',
+      explanation:
+        'This verse teaches us the principle of Karma Yoga - the yoga of selfless action. It reminds us to focus on our duties and responsibilities without being attached to the results. When we perform our actions with dedication but without expecting specific outcomes, we find inner peace and spiritual growth.',
       keywords: ['karma', 'detachment', 'duty', 'selfless action'],
       audioUrl: 'https://example.com/audio/2-47.mp3',
     };
@@ -332,7 +387,7 @@ class ApiService {
         titleSanskrit: 'अर्जुन विषाद योग',
         verseCount: 47,
         completedVerses: 12,
-        theme: 'The Yoga of Arjuna\'s Dejection',
+        theme: "The Yoga of Arjuna's Dejection",
       },
       {
         id: 2,
@@ -374,4 +429,4 @@ class ApiService {
   }
 }
 
-export const apiService = new ApiService(); 
+export const apiService = new ApiService();

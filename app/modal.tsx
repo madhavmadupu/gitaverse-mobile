@@ -309,12 +309,12 @@ export default function Modal() {
 
       {/* Verses List */}
       <ScrollView className="flex-1 bg-gray-50" showsVerticalScrollIndicator={false}>
-        <View className="px-6 py-4">
+        <View className="px-2 py-2">
           {verses.map((verse, index) => (
             <TouchableOpacity
               key={verse.id}
               onPress={() => handleVersePress(verse)}
-              className="bg-white rounded-xl p-4 mb-4 shadow-sm"
+              className="bg-white rounded-xl p-4 mb-2 shadow-sm"
             >
               <View className="flex-row items-center justify-between mb-3">
                 <Text className="text-lg font-semibold text-gray-800">

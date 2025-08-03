@@ -36,6 +36,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.gitaverse.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

@@ -1,4 +1,5 @@
 import { Verse } from '../store/verseStore';
+import { supabase } from './supabase';
 
 const API_BASE_URL = process.env.GITAVERSE_API_BASE_URL || 'https://gitaverse.vercel.app/api/';
 
@@ -39,17 +40,68 @@ class ApiService {
 
   // Get today's verse
   async getTodayVerse(): Promise<Verse> {
-    return this.request<Verse>('verses/today');
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // First try to get from daily_verses table
+      const { data: dailyVerse, error: dailyError } = await supabase
+        .from('daily_verses')
+        .select('*')
+        .eq('date', today)
+        .single();
+
+      if (dailyVerse) {
+        // Get the full verse details
+        const { data: verse, error: verseError } = await supabase
+          .from('verses')
+          .select('*')
+          .eq('id', dailyVerse.verse_id)
+          .single();
+
+        if (verse) {
+          return verse as Verse;
+        }
+      }
+
+      // Fallback to mock data if no daily verse found
+      return this.getMockTodayVerse();
+    } catch (error) {
+      console.error('Error fetching today\'s verse:', error);
+      return this.getMockTodayVerse();
+    }
   }
 
   // Get verse by ID
   async getVerse(verseId: string): Promise<Verse> {
-    return this.request<Verse>(`verses/${verseId}`);
+    try {
+      const { data, error } = await supabase
+        .from('verses')
+        .select('*')
+        .eq('id', verseId)
+        .single();
+
+      if (error) throw error;
+      return data as Verse;
+    } catch (error) {
+      console.error('Error fetching verse:', error);
+      throw error;
+    }
   }
 
   // Get all chapters
   async getChapters() {
-    return this.request('chapters');
+    try {
+      const { data, error } = await supabase
+        .from('chapters')
+        .select('*')
+        .order('id');
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+      return this.getMockChapters();
+    }
   }
 
   // Get verses by chapter
@@ -59,40 +111,132 @@ class ApiService {
 
   // Mark verse as read
   async markVerseAsRead(verseId: string, timeSpent: number) {
-    return this.request('progress/mark-read', {
-      method: 'POST',
-      body: JSON.stringify({
-        verseId,
-        timeSpent,
-        completedAt: new Date().toISOString(),
-      }),
-    });
+    try {
+      const { error } = await supabase
+        .from('user_progress')
+        .upsert({
+          verse_id: verseId,
+          time_spent: timeSpent,
+          read_at: new Date().toISOString(),
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error marking verse as read:', error);
+      throw error;
+    }
   }
 
   // Get user progress
   async getUserProgress() {
-    return this.request('progress/user');
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        return {
+          currentStreak: 0,
+          longestStreak: 0,
+          totalVerses: 0,
+          totalChapters: 0,
+          totalTime: 0,
+          lastReadDate: null,
+        };
+      }
+
+      const { data, error } = await supabase
+        .from('user_progress')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Calculate progress from data
+      const totalVerses = data?.length || 0;
+      const lastReadDate = data?.length > 0 ?
+        new Date(Math.max(...data.map(d => new Date(d.read_at).getTime()))) : null;
+
+      // Calculate streak (simplified)
+      let currentStreak = 0;
+      if (lastReadDate) {
+        const today = new Date();
+        const diffTime = Math.abs(today.getTime() - lastReadDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        currentStreak = diffDays <= 1 ? 1 : 0;
+      }
+
+      return {
+        currentStreak,
+        longestStreak: currentStreak, // Simplified
+        totalVerses,
+        totalChapters: Math.floor(totalVerses / 10), // Simplified
+        totalTime: totalVerses * 5, // 5 minutes per verse
+        lastReadDate,
+      };
+    } catch (error) {
+      console.error('Error fetching user progress:', error);
+      return {
+        currentStreak: 0,
+        longestStreak: 0,
+        totalVerses: 0,
+        totalChapters: 0,
+        totalTime: 0,
+        lastReadDate: null,
+      };
+    }
   }
 
   // Update user settings
   async updateUserSettings(settings: any) {
-    return this.request('user/settings', {
-      method: 'PUT',
-      body: JSON.stringify(settings),
-    });
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: userId,
+          ...settings,
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating user settings:', error);
+      throw error;
+    }
   }
 
   // Search verses
   async searchVerses(query: string) {
-    return this.request(`verses/search?q=${encodeURIComponent(query)}`);
+    try {
+      const { data, error } = await supabase
+        .from('verses')
+        .select('*')
+        .or(`sanskrit.ilike.%${query}%,english.ilike.%${query}%,meaning.ilike.%${query}%`)
+        .limit(20);
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error searching verses:', error);
+      throw error;
+    }
   }
 
   // Get AI explanation for verse
   async getVerseExplanation(verseId: string, level: string = 'beginner') {
-    return this.request(`verses/${verseId}/explanation`, {
-      method: 'POST',
-      body: JSON.stringify({ level }),
-    });
+    try {
+      const { data, error } = await supabase
+        .from('verses')
+        .select('explanation')
+        .eq('id', verseId)
+        .single();
+
+      if (error) throw error;
+      return data.explanation || 'No explanation available.';
+    } catch (error) {
+      console.error('Error fetching verse explanation:', error);
+      return 'No explanation available.';
+    }
   }
 
   // Mock data for development

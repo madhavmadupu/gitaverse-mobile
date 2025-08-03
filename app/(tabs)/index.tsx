@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +12,7 @@ import { useVerseStore } from '../../store/verseStore';
 import { apiService } from '../../utils/api';
 import VerseCard from '../../components/VerseCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TodayScreen() {
   const router = useRouter();
@@ -31,8 +31,8 @@ export default function TodayScreen() {
     const fetchTodayVerse = async () => {
       setLoading(true);
       try {
-        // For development, use mock data
-        const verse = apiService.getMockTodayVerse();
+        // Try to fetch from Supabase first
+        const verse = await apiService.getTodayVerse();
         setTodayVerse(verse);
       } catch (error) {
         console.error('Failed to fetch today\'s verse:', error);
@@ -47,20 +47,47 @@ export default function TodayScreen() {
     fetchTodayVerse();
   }, [setTodayVerse, setLoading]);
 
-  const handleMarkAsRead = () => {
+  const handleMarkAsRead = async () => {
     if (todayVerse) {
-      markAsRead(todayVerse.id);
+      try {
+        await apiService.markVerseAsRead(todayVerse.id, 300); // 5 minutes
+        markAsRead(todayVerse.id);
+      } catch (error) {
+        console.error('Error marking verse as read:', error);
+      }
     }
   };
 
-  const handleShare = () => {
-    // Implement sharing functionality
-    console.log('Share verse');
+  const handleShare = async () => {
+    if (todayVerse) {
+      try {
+        const shareText = `Today's Bhagavad Gita Verse:\n\n"${todayVerse.translation}"\n\nChapter ${todayVerse.chapter}, Verse ${todayVerse.verse}\n\n#BhagavadGita #DailyWisdom`;
+
+        // For now, we'll use console.log, but in a real app you'd use expo-sharing
+        console.log('Sharing verse:', shareText);
+        // await Share.share({ message: shareText });
+      } catch (error) {
+        console.error('Error sharing verse:', error);
+      }
+    }
   };
 
   const handleFavorite = () => {
     if (todayVerse) {
       toggleFavorite(todayVerse.id);
+    }
+  };
+
+  const handlePlayAudio = async () => {
+    if (todayVerse?.audioUrl) {
+      try {
+        console.log('Playing audio for verse:', todayVerse.id);
+        // In a real app, you'd use expo-av to play audio
+        // const { sound } = await Audio.Sound.createAsync({ uri: todayVerse.audioUrl });
+        // await sound.playAsync();
+      } catch (error) {
+        console.error('Error playing audio:', error);
+      }
     }
   };
 
@@ -99,7 +126,7 @@ export default function TodayScreen() {
               🔥 {userProgress.currentStreak} day streak
             </Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/settings')}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
             <Ionicons name="settings-outline" size={24} color="#6B7280" />
           </TouchableOpacity>
         </View>
@@ -113,7 +140,7 @@ export default function TodayScreen() {
             onMarkAsRead={handleMarkAsRead}
             onFavorite={handleFavorite}
             onShare={handleShare}
-            onPlayAudio={() => console.log('Play audio')}
+            onPlayAudio={handlePlayAudio}
             hasRead={hasReadToday}
             isFavorite={userProgress.favoriteVerses.includes(todayVerse.id)}
           />
@@ -180,8 +207,8 @@ export default function TodayScreen() {
           </View>
         </View>
 
-        {/* Bottom spacing for floating tab bar */}
-        <View className="h-20" />
+        {/* Bottom spacing for tab bar */}
+        <View className="h-16" />
       </ScrollView>
     </SafeAreaView>
   );

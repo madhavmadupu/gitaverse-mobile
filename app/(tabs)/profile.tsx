@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   SafeAreaView,
   StatusBar,
   Switch,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useVerseStore } from '../../store/verseStore';
+import { apiService } from '../../utils/api';
+import { supabase } from '../../utils/supabase';
 
 interface SettingItem {
   id: string;
@@ -37,6 +40,72 @@ export default function ProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(userSettings.notificationsEnabled);
   const [soundEnabled, setSoundEnabled] = useState(userSettings.soundEnabled);
   const [hapticEnabled, setHapticEnabled] = useState(userSettings.hapticEnabled);
+  const [user, setUser] = useState(mockUser);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          setUser({
+            ...mockUser,
+            name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+            email: authUser.email || mockUser.email,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  const handleSettingUpdate = async (setting: string, value: boolean) => {
+    try {
+      await apiService.updateUserSettings({ [setting]: value });
+      updateSettings({ [setting]: value });
+    } catch (error) {
+      console.error('Error updating setting:', error);
+      Alert.alert('Error', 'Failed to update setting. Please try again.');
+    }
+  };
+
+  const handleSignOut = async () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await supabase.auth.signOut();
+              // Reset store data
+              // You might want to add a reset function to your store
+            } catch (error) {
+              console.error('Error signing out:', error);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleShareApp = () => {
+    const shareText = 'Check out Gitaverse - a beautiful Bhagavad Gita daily learning app! 📖✨\n\nDownload now and start your spiritual journey.';
+    console.log('Sharing app:', shareText);
+    // In a real app, you'd use expo-sharing
+    // await Share.share({ message: shareText });
+  };
+
+  const handleRateApp = () => {
+    console.log('Rate app');
+    // In a real app, you'd open the app store
+    // Linking.openURL('https://apps.apple.com/app/your-app-id');
+  };
 
   const settings: SettingItem[] = [
     {
@@ -49,7 +118,7 @@ export default function ProfileScreen() {
       onPress: () => {
         const newValue = !notificationsEnabled;
         setNotificationsEnabled(newValue);
-        updateSettings({ notificationsEnabled: newValue });
+        handleSettingUpdate('notificationsEnabled', newValue);
       },
     },
     {
@@ -62,7 +131,7 @@ export default function ProfileScreen() {
       onPress: () => {
         const newValue = !soundEnabled;
         setSoundEnabled(newValue);
-        updateSettings({ soundEnabled: newValue });
+        handleSettingUpdate('soundEnabled', newValue);
       },
     },
     {
@@ -75,7 +144,7 @@ export default function ProfileScreen() {
       onPress: () => {
         const newValue = !hapticEnabled;
         setHapticEnabled(newValue);
-        updateSettings({ hapticEnabled: newValue });
+        handleSettingUpdate('hapticEnabled', newValue);
       },
     },
     {
@@ -154,7 +223,7 @@ export default function ProfileScreen() {
       subtitle: 'Rate us on App Store',
       icon: 'star',
       type: 'action',
-      onPress: () => console.log('Rate app'),
+      onPress: handleRateApp,
     },
     {
       id: 'share',
@@ -162,7 +231,7 @@ export default function ProfileScreen() {
       subtitle: 'Share with friends',
       icon: 'share-social',
       type: 'action',
-      onPress: () => console.log('Share app'),
+      onPress: handleShareApp,
     },
   ];
 
@@ -210,9 +279,9 @@ export default function ProfileScreen() {
             
             <View className="flex-1">
               <Text className="text-xl font-bold text-gray-900">
-                {mockUser.name}
+                {user.name}
               </Text>
-              <Text className="text-gray-500">{mockUser.email}</Text>
+              <Text className="text-gray-500">{user.email}</Text>
               <View className="flex-row items-center mt-1">
                 <View className="bg-orange-100 px-2 py-1 rounded-full mr-2">
                   <Text className="text-orange-600 text-xs font-medium capitalize">
@@ -291,7 +360,7 @@ export default function ProfileScreen() {
 
         {/* Logout Button */}
         <View className="px-6 mb-6">
-          <TouchableOpacity className="bg-red-50 py-4 rounded-2xl">
+          <TouchableOpacity className="bg-red-50 py-4 rounded-2xl" onPress={handleSignOut}>
             <View className="flex-row items-center justify-center">
               <Ionicons name="log-out" size={20} color="#EF4444" />
               <Text className="text-red-600 font-semibold ml-2">
@@ -301,8 +370,8 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Bottom spacing for floating tab bar */}
-        <View className="h-20" />
+        {/* Bottom spacing for tab bar */}
+        <View className="h-16" />
       </ScrollView>
     </SafeAreaView>
   );

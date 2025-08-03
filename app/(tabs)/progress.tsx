@@ -296,8 +296,8 @@ export default function ProgressScreen() {
           ))}
         </View>
 
-        {/* Bottom spacing for floating tab bar */}
-        <View className="h-20" />
+        {/* Bottom spacing for tab bar */}
+        <View className="h-16" />
       </ScrollView>
     </SafeAreaView>
   );

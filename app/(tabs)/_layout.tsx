@@ -1,37 +1,26 @@
 import { Link, Tabs } from 'expo-router';
-import { View } from 'react-native';
+import { View, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function TabLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#F97316', // Saffron color
-        tabBarInactiveTintColor: '#9CA3AF',
-        tabBarStyle: {
-          position: 'absolute',
-          bottom: 20,
-          left: 20,
-          right: 20,
-          elevation: 0,
-          backgroundColor: '#FFFFFF',
-          borderRadius: 15,
-          height: 60,
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 2,
+    <SafeAreaView style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: '#F97316', // Saffron color
+          tabBarInactiveTintColor: '#9CA3AF',
+          tabBarStyle: {
+            backgroundColor: '#FFFFFF',
+            height: 60,
+            borderTopWidth: 1,
+            borderTopColor: '#E5E7EB',
           },
-          shadowOpacity: 0.25,
-          shadowRadius: 3.84,
-          elevation: 5,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '600',
-        },
-        headerShown: false,
-      }}>
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: '600',
+          },
+          headerShown: false,
+        }}>
       <Tabs.Screen
         name="index"
         options={{
@@ -84,6 +73,7 @@ export default function TabLayout() {
           ),
         }}
       />
-    </Tabs>
+      </Tabs>
+    </SafeAreaView>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { apiService } from '../../utils/api';
+import { useVerseStore } from '../../store/verseStore';
 
 interface Chapter {
   id: number;
@@ -73,6 +75,25 @@ export default function LibraryScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { userProgress } = useVerseStore();
+
+  useEffect(() => {
+    const fetchChapters = async () => {
+      try {
+        const chaptersData = await apiService.getChapters();
+        setChapters(chaptersData);
+      } catch (error) {
+        console.error('Error fetching chapters:', error);
+        setChapters(mockChapters);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchChapters();
+  }, []);
 
   const filters = [
     { id: 'all', label: 'All Chapters' },
@@ -81,13 +102,29 @@ export default function LibraryScreen() {
     { id: 'favorites', label: 'Favorites' },
   ];
 
-  const filteredChapters = mockChapters.filter(chapter => {
+  const filteredChapters = chapters.filter(chapter => {
     if (searchQuery) {
       return chapter.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
              chapter.theme.toLowerCase().includes(searchQuery.toLowerCase());
     }
     return true;
   });
+
+  const handleChapterPress = (chapterId: number) => {
+    // For now, navigate to a placeholder screen
+    console.log('Navigate to chapter:', chapterId);
+    // router.push(`/chapter/${chapterId}`);
+  };
+
+  const handleContinueReading = (chapterId: number) => {
+    console.log('Continue reading chapter:', chapterId);
+    // router.push(`/chapter/${chapterId}`);
+  };
+
+  const handleBookmarkChapter = (chapterId: number) => {
+    console.log('Bookmark chapter:', chapterId);
+    // In a real app, you'd save this to Supabase
+  };
 
   const getProgressPercentage = (completed: number, total: number) => {
     return Math.round((completed / total) * 100);
@@ -170,7 +207,7 @@ export default function LibraryScreen() {
             <TouchableOpacity
               key={chapter.id}
               className="bg-white rounded-2xl p-6 mb-4 shadow-sm"
-              onPress={() => router.push(`/chapter/${chapter.id}`)}
+              onPress={() => handleChapterPress(chapter.id)}
             >
               <View className="flex-row justify-between items-start mb-3">
                 <View className="flex-1">
@@ -216,13 +253,19 @@ export default function LibraryScreen() {
 
               {/* Action Buttons */}
               <View className="flex-row space-x-3">
-                <TouchableOpacity className="flex-1 bg-orange-500 py-3 rounded-lg">
+                <TouchableOpacity
+                  className="flex-1 bg-orange-500 py-3 rounded-lg"
+                  onPress={() => handleContinueReading(chapter.id)}
+                >
                   <Text className="text-white text-center font-semibold">
                     Continue Reading
                   </Text>
                 </TouchableOpacity>
-                
-                <TouchableOpacity className="bg-gray-100 py-3 px-4 rounded-lg">
+
+                <TouchableOpacity
+                  className="bg-gray-100 py-3 px-4 rounded-lg"
+                  onPress={() => handleBookmarkChapter(chapter.id)}
+                >
                   <Ionicons name="bookmark-outline" size={20} color="#6B7280" />
                 </TouchableOpacity>
               </View>
@@ -230,8 +273,8 @@ export default function LibraryScreen() {
           );
         })}
 
-        {/* Bottom spacing for floating tab bar */}
-        <View className="h-20" />
+        {/* Bottom spacing for tab bar */}
+        <View className="h-16" />
       </ScrollView>
     </SafeAreaView>
   );

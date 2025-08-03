@@ -7,6 +7,7 @@ import {
   StatusBar,
   TextInput,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
@@ -108,7 +109,7 @@ export default function LibraryScreen() {
   const filteredChapters = chapters.filter(chapter => {
     if (searchQuery) {
       return chapter.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-             chapter.theme.toLowerCase().includes(searchQuery.toLowerCase());
+        chapter.theme.toLowerCase().includes(searchQuery.toLowerCase());
     }
     return true;
   });
@@ -158,12 +159,18 @@ export default function LibraryScreen() {
     return 'bg-orange-500';
   };
 
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    await apiService.getChapters();
+    setIsLoading(false);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Header */}
-      <View className="px-6 py-4">
+      <View className="px-4 py-4">
         <Text className="text-2xl font-bold text-gray-900 mb-2">
           Library
         </Text>
@@ -173,8 +180,8 @@ export default function LibraryScreen() {
       </View>
 
       {/* Search Bar */}
-      <View className="px-6 mb-4">
-        <View className="bg-white rounded-xl flex-row items-center px-4 py-3 shadow-sm">
+      <View className="px-4 mb-4">
+        <View className="bg-white rounded-xl flex-row items-center px-4 py-0 shadow-sm">
           <Ionicons name="search" size={20} color="#6B7280" />
           <TextInput
             className="flex-1 ml-3 text-gray-900"
@@ -192,24 +199,22 @@ export default function LibraryScreen() {
       </View>
 
       {/* Filters */}
-      <View className="px-6 mb-4">
+      <View className="px-4 mb-4">
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {filters.map((filter) => (
             <TouchableOpacity
               key={filter.id}
-              className={`px-4 py-2 rounded-full mr-3 ${
-                selectedFilter === filter.id
-                  ? 'bg-orange-500'
-                  : 'bg-white'
-              }`}
+              className={`px-4 py-2 rounded-full mr-2 ${selectedFilter === filter.id
+                ? 'bg-orange-500'
+                : 'bg-white'
+                }`}
               onPress={() => setSelectedFilter(filter.id)}
             >
               <Text
-                className={`text-sm font-medium ${
-                  selectedFilter === filter.id
-                    ? 'text-white'
-                    : 'text-gray-600'
-                }`}
+                className={`text-sm font-medium ${selectedFilter === filter.id
+                  ? 'text-white'
+                  : 'text-gray-600'
+                  }`}
               >
                 {filter.label}
               </Text>
@@ -218,13 +223,16 @@ export default function LibraryScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
+        className="flex-1 px-4"
+        showsVerticalScrollIndicator={false}>
         {filteredChapters.map((chapter) => {
           const progressPercentage = getProgressPercentage(
             chapter.completedVerses,
             chapter.verseCount
           );
-          
+
           return (
             <TouchableOpacity
               key={chapter.id}
@@ -243,7 +251,7 @@ export default function LibraryScreen() {
                     {chapter.titleSanskrit}
                   </Text>
                 </View>
-                
+
                 <View className="bg-orange-100 px-3 py-1 rounded-full">
                   <Text className="text-orange-600 font-semibold text-sm">
                     {chapter.completedVerses}/{chapter.verseCount}

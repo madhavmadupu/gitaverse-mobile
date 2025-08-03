@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -110,7 +110,7 @@ export default function ProgressScreen() {
         {/* Streak Card */}
         <View className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-6 mb-6">
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-white text-lg font-semibold">
+            <Text className="text-lg font-semibold">
               Current Streak
             </Text>
             <View className="flex-row items-center">
@@ -118,20 +118,20 @@ export default function ProgressScreen() {
                 onPress={handleShareProgress}
                 className="mr-3 p-2 rounded-full bg-white bg-opacity-20"
               >
-                <Ionicons name="share-outline" size={20} color="#FFFFFF" />
+                <Ionicons name="share-outline" size={20} color="#6B7280" />
               </TouchableOpacity>
-              <Ionicons name="flame" size={24} color="#FFFFFF" />
+              <Ionicons name="flame" size={24} color="#6B7280" />
             </View>
           </View>
           
           <View className="flex-row items-end mb-2">
-            <Text className="text-4xl font-bold text-white mr-2">
+            <Text className="text-4xl font-bold mr-2">
               {stats.currentStreak}
             </Text>
-            <Text className="text-white text-lg mb-1">days</Text>
+            <Text className=" text-lg mb-1">days</Text>
           </View>
           
-          <Text className="text-orange-100 text-sm">
+          <Text className="text-orange-500 text-sm">
             Longest streak: {stats.longestStreak} days
           </Text>
         </View>
@@ -191,7 +191,7 @@ export default function ProgressScreen() {
             Activity
           </Text>
           
-          <View className="flex-row space-x-3 mb-4">
+          <View className="flex-row gap-2 mb-4">
             {timeframes.map((timeframe) => (
               <TouchableOpacity
                 key={timeframe.id}

@@ -149,14 +149,6 @@ export default function RootLayout() {
           }}
         />
 
-        {/* Onboarding route - accessible when authenticated but not onboarded */}
-        <Stack.Screen
-          name="(auth)/onboarding"
-          options={{
-            headerShown: false,
-          }}
-        />
-
         {/* Main app routes - accessible when authenticated and onboarded */}
         <Stack.Screen
           name="(tabs)"
@@ -177,12 +169,6 @@ export default function RootLayout() {
         {/* Settings routes */}
         <Stack.Screen
           name="edit-profile"
-          options={{
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="(tabs)/settings"
           options={{
             headerShown: false,
           }}

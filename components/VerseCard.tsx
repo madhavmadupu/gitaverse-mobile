@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Verse } from '../store/verseStore';
 
@@ -25,7 +25,7 @@ export default function VerseCard({
   showActions = true,
 }: VerseCardProps) {
   return (
-    <View className="bg-white rounded-2xl p-6 mb-6 shadow-sm">
+    <View className="bg-white rounded-2xl p-6 mb-4 shadow-sm">
       <View className="flex-row justify-between items-center mb-4">
         <Text className="text-lg font-semibold text-gray-800">
           Chapter {verse.chapter} • Verse {verse.verse}
@@ -39,10 +39,10 @@ export default function VerseCard({
 
       {/* Sanskrit Text */}
       <View className="mb-6">
-        <Text className="text-base text-center font-sanskrit mb-4 text-orange-600 leading-6">
+        <Text className="text-lg text-center font-sanskrit mb-4 text-orange-600 leading-8">
           {verse.sanskrit}
         </Text>
-        
+
         {/* Audio Button */}
         {onPlayAudio && (
           <TouchableOpacity className="bg-orange-50 rounded-lg py-3 mb-4" onPress={onPlayAudio}>
@@ -65,34 +65,32 @@ export default function VerseCard({
 
       {/* Action Buttons */}
       {showActions && (
-        <View className="flex-row space-x-3">
+        <View className="flex-row space-x-3 gap-4">
           {onMarkAsRead && (
-            <TouchableOpacity 
-              className={`flex-1 py-3 rounded-lg ${
-                hasRead 
-                  ? 'bg-green-100' 
-                  : 'bg-orange-500'
-              }`}
+            <TouchableOpacity
+              className={`flex-1 py-3 rounded-lg ${hasRead
+                ? 'bg-green-100'
+                : 'bg-orange-500'
+                }`}
               onPress={onMarkAsRead}
               disabled={hasRead}
             >
-              <Text className={`text-center font-semibold ${
-                hasRead ? 'text-green-600' : 'text-white'
-              }`}>
+              <Text className={`text-center font-semibold ${hasRead ? 'text-green-600' : 'text-white'
+                }`}>
                 {hasRead ? '✓ Completed' : 'Mark as Read'}
               </Text>
             </TouchableOpacity>
           )}
-          
+
           {onFavorite && (
-            <TouchableOpacity 
-              className="bg-gray-100 py-3 px-4 rounded-lg"
+            <TouchableOpacity
+              className="bg-gray-100 py-3 px-3 rounded-lg"
               onPress={onFavorite}
             >
-              <Ionicons 
-                name={isFavorite ? "heart" : "heart-outline"} 
-                size={20} 
-                color={isFavorite ? "#EF4444" : "#6B7280"} 
+              <Ionicons
+                name={isFavorite ? "heart" : "heart-outline"}
+                size={20}
+                color={isFavorite ? "#EF4444" : "#6B7280"}
               />
             </TouchableOpacity>
           )}

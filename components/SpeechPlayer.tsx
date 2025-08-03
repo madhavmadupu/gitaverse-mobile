@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { speechService } from '../utils/speech';
 import { hapticsService } from '../utils/haptics';
@@ -69,7 +69,7 @@ export default function SpeechPlayer({ isVisible, onClose }: SpeechPlayerProps) 
           </Text>
         </View>
 
-        <View className="flex-row items-center space-x-2">
+        <View className="flex-row items-center gap-2">
           <TouchableOpacity
             onPress={handlePlayPause}
             className="w-10 h-10 bg-orange-500 rounded-full items-center justify-center"
@@ -83,7 +83,7 @@ export default function SpeechPlayer({ isVisible, onClose }: SpeechPlayerProps) 
 
           <TouchableOpacity
             onPress={handleStop}
-            className="w-8 h-8 bg-gray-200 rounded-full items-center justify-center"
+            className="w-10 h-10 bg-gray-200 rounded-full items-center justify-center"
           >
             <Ionicons name="stop" size={16} color="#6B7280" />
           </TouchableOpacity>

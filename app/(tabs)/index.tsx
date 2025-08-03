@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   StatusBar,
   Alert,
+  RefreshControl,
+  Share,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
 import { Ionicons } from '@expo/vector-icons';
@@ -68,19 +70,15 @@ export default function TodayScreen() {
     if (todayVerse) {
       try {
         await hapticsService.buttonPress();
-        const shareText = `Today's Bhagavad Gita Verse:\n\n"${todayVerse.translation}"\n\nChapter ${todayVerse.chapter}, Verse ${todayVerse.verse}\n\n#BhagavadGita #DailyWisdom`;
+        const shareText = `Today's Bhagavad Gita Verse:\n\n${todayVerse.sanskrit}\n\n"${todayVerse.translation}"\n\nChapter ${todayVerse.chapter}, Verse ${todayVerse.verse}\n\n#BhagavadGita #DailyWisdom`;
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(shareText, {
-            mimeType: 'text/plain',
-            dialogTitle: 'Share Today\'s Verse',
-          });
-        } else {
-          Alert.alert('Share Verse', shareText, [
-            { text: 'Copy', onPress: () => console.log('Copied to clipboard') },
-            { text: 'Cancel', style: 'cancel' }
-          ]);
-        }
+        await Share.share(
+          {
+            message: shareText,
+            title: 'Share Today\'s Verse',
+            url: 'https://gitaverse.vercel.app',
+          }
+        );
       } catch (error) {
         console.error('Error sharing verse:', error);
         await hapticsService.errorAction();
@@ -107,11 +105,11 @@ export default function TodayScreen() {
         console.log('Playing TTS for verse:', todayVerse.id);
 
         // Use speech service for text-to-speech
-        const textToSpeak = `${todayVerse.translation}`;
+        const textToSpeak = `${todayVerse.sanskrit} ${todayVerse.translation}`;
         await speechService.speak(textToSpeak, {
-          language: 'en-US',
-          pitch: 1.0,
-          rate: 0.8,
+          language: 'hi-IN',
+          pitch: 1,
+          // rate: 0.8,
           onDone: () => console.log('TTS finished'),
           onError: (error) => console.error('TTS error:', error),
         });
@@ -121,6 +119,13 @@ export default function TodayScreen() {
       }
     }
   };
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    await apiService.getTodayVerse();
+    setLoading(false);
+  };
+
 
   if (isLoading) {
     return (
@@ -134,23 +139,23 @@ export default function TodayScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Header */}
-      <View className="flex-row justify-between items-center px-6 py-4">
+      <View className="flex-row justify-between items-center px-4 py-4">
         <View>
           <Text className="text-2xl font-bold text-gray-900">
             Today's Verse
           </Text>
           <Text className="text-sm text-gray-500">
-            {new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
             })}
           </Text>
         </View>
-        
+
         <View className="flex-row items-center">
           <View className="bg-orange-100 px-3 py-1 rounded-full mr-2">
             <Text className="text-orange-600 font-semibold text-sm">
@@ -163,7 +168,10 @@ export default function TodayScreen() {
         </View>
       </View>
 
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
+        className="flex-1 px-4"
+        showsVerticalScrollIndicator={false}>
         {/* Verse Card */}
         {todayVerse && (
           <VerseCard
@@ -185,7 +193,7 @@ export default function TodayScreen() {
               Daily Insight
             </Text>
           </View>
-          
+
           <Text className="text-gray-700 leading-6 mb-4">
             {todayVerse?.explanation}
           </Text>
@@ -199,42 +207,6 @@ export default function TodayScreen() {
                 </Text>
               </View>
             ))}
-          </View>
-        </View>
-
-        {/* Progress Indicator */}
-        <View className="bg-white rounded-2xl p-6 mb-6 shadow-sm">
-          <Text className="text-lg font-semibold text-gray-800 mb-4">
-            Your Progress
-          </Text>
-          
-          <View className="flex-row justify-between items-center">
-            <View>
-              <Text className="text-2xl font-bold text-gray-900">
-                {userProgress.currentStreak}
-              </Text>
-              <Text className="text-sm text-gray-500">
-                Day Streak
-              </Text>
-            </View>
-            
-            <View>
-              <Text className="text-2xl font-bold text-gray-900">
-                {hasReadToday ? '1' : '0'}
-              </Text>
-              <Text className="text-sm text-gray-500">
-                Today's Goal
-              </Text>
-            </View>
-            
-            <View>
-              <Text className="text-2xl font-bold text-gray-900">
-                {userProgress.totalVerses}
-              </Text>
-              <Text className="text-sm text-gray-500">
-                Total Verses
-              </Text>
-            </View>
           </View>
         </View>
 

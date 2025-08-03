@@ -238,7 +238,7 @@ export default function Modal() {
     const currentIndex = verses.findIndex(v => v.id === selectedVerse.id);
     if (currentIndex > 0) {
       const previousVerse = verses[currentIndex - 1];
-      router.push(`/modal?type=verse&verseId=${previousVerse.id}`);
+      router.replace(`/modal?type=verse&verseId=${previousVerse.id}`);
     }
   };
 
@@ -248,7 +248,7 @@ export default function Modal() {
     const currentIndex = verses.findIndex(v => v.id === selectedVerse.id);
     if (currentIndex < verses.length - 1) {
       const nextVerse = verses[currentIndex + 1];
-      router.push(`/modal?type=verse&verseId=${nextVerse.id}`);
+      router.replace(`/modal?type=verse&verseId=${nextVerse.id}`);
     }
   };
 
@@ -439,7 +439,7 @@ export default function Modal() {
 
             {/* Action Buttons */}
             <View className="bg-white rounded-xl p-6 mb-4 shadow-sm">
-              <View className="flex-row space-x-3 mb-3">
+              <View className="flex-row gap-2 mb-3">
                 <TouchableOpacity
                   className={`flex-1 py-3 rounded-lg ${
                     selectedVerse.isCompleted ? 'bg-green-500' : 'bg-orange-500'
@@ -466,7 +466,7 @@ export default function Modal() {
               </View>
               
               {/* Navigation Buttons */}
-              <View className="flex-row space-x-3">
+              <View className="flex-row gap-2">
                 <TouchableOpacity
                   className="flex-1 py-3 rounded-lg bg-gray-200"
                   onPress={handlePreviousVerse}

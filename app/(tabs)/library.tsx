@@ -484,18 +484,15 @@ export default function LibraryScreen() {
           return (
             <TouchableOpacity
               key={chapter.id}
-              className="bg-white rounded-2xl p-6 mb-4 shadow-sm"
+              className="bg-white rounded-2xl p-2 mb-2 shadow-sm"
               onPress={() => handleChapterPress(chapter.chapter_number.toString())}
             >
-              <View className="flex-row justify-between items-start mb-3">
+              <View className="flex-row justify-between items-start">
                 <View className="flex-1">
                   <Text className="text-lg font-semibold text-gray-900">
-                    Chapter {chapter.chapter_number}
-                  </Text>
-                  <Text className="text-base text-gray-700 mb-1">
                     {chapter.title_english}
                   </Text>
-                  <Text className="text-sm text-orange-600 font-medium">
+                  <Text className="text-base text-gray-700 mb-1">
                     {chapter.title_sanskrit}
                   </Text>
                 </View>
@@ -530,7 +527,7 @@ export default function LibraryScreen() {
               </View>
 
               {/* Action Buttons */}
-              <View className="flex-row space-x-3">
+              <View className="flex-row gap-2">
                 <TouchableOpacity
                   className="flex-1 bg-orange-500 py-3 rounded-lg"
                   onPress={() => handleContinueReading(chapter.chapter_number.toString())}

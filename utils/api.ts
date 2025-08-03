@@ -10,6 +10,13 @@ class ApiService {
     this.baseUrl = API_BASE_URL;
   }
 
+  // Helper method to check if a verse ID is a mock ID
+  private isMockVerseId(verseId: string): boolean {
+    // Mock verse IDs are in format "chapter-verse" (e.g., "2-47")
+    // Real UUIDs contain curly braces or are in UUID format
+    return verseId.includes('-') && !verseId.includes('{') && !verseId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
@@ -71,6 +78,12 @@ class ApiService {
   // Get verse by ID
   async getVerse(verseId: string): Promise<Verse> {
     try {
+      // Check if this is a mock verse ID (format: "chapter-verse")
+      if (this.isMockVerseId(verseId)) {
+        console.log('Skipping database call for mock verse ID:', verseId);
+        throw new Error('Mock verse ID provided, cannot fetch from database');
+      }
+
       const { data, error } = await supabase.from('verses').select('*').eq('id', verseId).single();
 
       if (error) throw error;
@@ -102,6 +115,12 @@ class ApiService {
   // Mark verse as read
   async markVerseAsRead(verseId: string, timeSpent: number) {
     try {
+      // Check if this is a mock verse ID (format: "chapter-verse")
+      if (this.isMockVerseId(verseId)) {
+        console.log('Skipping database call for mock verse ID:', verseId);
+        return; // Skip database call for mock data
+      }
+
       const { error } = await supabase.from('user_progress').upsert({
         verse_id: verseId,
         time_spent_seconds: timeSpent,
@@ -109,7 +128,12 @@ class ApiService {
         user_id: (await supabase.auth.getUser()).data.user?.id,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error marking verse as read:', error);
+        throw error;
+      }
+      
+      console.log('Successfully marked verse as read:', verseId);
     } catch (error) {
       console.error('Error marking verse as read:', error);
       throw error;
@@ -175,6 +199,26 @@ class ApiService {
     }
   }
 
+  // Update user metadata
+  async updateUserMetadata(metadata: any) {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: metadata
+      });
+
+      if (error) {
+        console.error('Error updating user metadata:', error);
+        throw error;
+      }
+
+      console.log('User metadata updated successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('Error updating user metadata:', error);
+      return { error };
+    }
+  }
+
   // Update user settings
   async updateUserSettings(settings: any) {
     try {
@@ -183,6 +227,8 @@ class ApiService {
         error: userError,
       } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
+
+      console.log('Updating user settings for user:', user.id, 'Settings:', settings);
 
       // Ensure user record exists in users table
       const { data: existingUser, error: userCheckError } = await supabase
@@ -209,11 +255,13 @@ class ApiService {
       }
 
       // First check if user_settings record exists
-      const { data: existingSettings } = await supabase
+      const { data: existingSettings, error: settingsCheckError } = await supabase
         .from('user_settings')
         .select('id')
         .eq('user_id', user.id)
         .single();
+
+      console.log('Existing settings check:', existingSettings, 'Error:', settingsCheckError);
 
       if (existingSettings) {
         // Update existing record
@@ -222,7 +270,11 @@ class ApiService {
           .update(settings)
           .eq('user_id', user.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error updating user settings:', error);
+          throw error;
+        }
+        console.log('User settings updated successfully');
       } else {
         // Insert new record
         const { error } = await supabase.from('user_settings').insert({
@@ -230,7 +282,24 @@ class ApiService {
           ...settings,
         });
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error inserting user settings:', error);
+          throw error;
+        }
+        console.log('User settings inserted successfully');
+      }
+
+      // Verify the settings were saved by fetching them back
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (verifyError) {
+        console.error('Error verifying user settings:', verifyError);
+      } else {
+        console.log('Verified user settings:', verifyData);
       }
     } catch (error) {
       console.error('Error updating user settings:', error);
@@ -258,6 +327,12 @@ class ApiService {
   // Get AI explanation for verse
   async getVerseExplanation(verseId: string, level: string = 'beginner') {
     try {
+      // Check if this is a mock verse ID (format: "chapter-verse")
+      if (this.isMockVerseId(verseId)) {
+        console.log('Skipping database call for mock verse ID:', verseId);
+        return 'No explanation available for mock verse.';
+      }
+
       const { data, error } = await supabase
         .from('verses')
         .select('explanation')
@@ -282,7 +357,7 @@ class ApiService {
       console.log('Checking onboarding for user:', user?.id);
       if (!user) return false;
 
-      // Check if user has spiritual_level in metadata
+            // Check if user has spiritual_level in metadata
       const hasSpiritualLevel = !!user.user_metadata?.spiritual_level;
       console.log(
         'Has spiritual level:',
@@ -294,11 +369,18 @@ class ApiService {
       // Check if user has daily reminder time in user_settings
       const { data: settingsData, error: settingsError } = await supabase
         .from('user_settings')
-        .select('daily_reminder_time')
+        .select('daily_reminder_time, notification_enabled')
         .eq('user_id', user.id)
         .single();
 
       console.log('User settings data:', settingsData, 'Error:', settingsError);
+      
+      // If there's an error fetching settings, it might mean the user hasn't completed onboarding
+      if (settingsError && settingsError.code !== 'PGRST116') {
+        console.log('Error fetching user settings:', settingsError);
+        return false;
+      }
+      
       const hasReminderTime = !!settingsData?.daily_reminder_time;
       console.log(
         'Has reminder time:',
@@ -310,6 +392,13 @@ class ApiService {
       // Check if user has set their spiritual level and daily reminder time
       const hasCompleted = hasSpiritualLevel && hasReminderTime;
       console.log('Onboarding completed:', hasCompleted);
+      
+      // Additional validation: ensure the spiritual level is not empty
+      if (hasCompleted && (!user.user_metadata?.spiritual_level || user.user_metadata.spiritual_level.trim() === '')) {
+        console.log('Spiritual level is empty, considering onboarding incomplete');
+        return false;
+      }
+      
       return hasCompleted;
     } catch (error) {
       console.error('Error checking onboarding status:', error);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { apiService } from '../../utils/api';
 import { notificationService } from '../../utils/notifications';
 import { hapticsService } from '../../utils/haptics';
-import { supabase } from '../../utils/supabase';
+import { useOnboardingStore } from '../../store/onboardingStore';
 
 const spiritualLevels = [
   {
@@ -52,6 +51,16 @@ export default function OnboardingScreen() {
   const [selectedTime, setSelectedTime] = useState('07:00');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
+  const { hasCompletedOnboarding, setOnboardingCompleted, isLoading } = useOnboardingStore();
+
+  // Check if user has already completed onboarding
+  useEffect(() => {
+    if (hasCompletedOnboarding) {
+      console.log('User has already completed onboarding, redirecting to tabs');
+      router.replace('/(tabs)');
+    }
+  }, [hasCompletedOnboarding, router]);
+
   const steps = [
     {
       title: 'What\'s your spiritual level?',
@@ -75,22 +84,18 @@ export default function OnboardingScreen() {
       // Complete onboarding
       try {
         await hapticsService.success();
-        
-        // Update user metadata with spiritual level
-        const { error: userError } = await supabase.auth.updateUser({
-          data: {
-            spiritual_level: selectedLevel,
-          }
+
+        console.log('Completing onboarding with:', {
+          spiritual_level: selectedLevel,
+          daily_reminder_time: selectedTime,
+          notification_enabled: notificationsEnabled
         });
 
-        if (userError) {
-          throw userError;
-        }
-
-        // Save user settings (daily reminder time and notification preferences)
-        await apiService.updateUserSettings({
-          daily_reminder_time: selectedTime,
-          notification_enabled: notificationsEnabled,
+        // Use the Zustand store to complete onboarding
+        await setOnboardingCompleted({
+          spiritualLevel: selectedLevel,
+          dailyReminderTime: selectedTime,
+          notificationsEnabled: notificationsEnabled,
         });
 
         // Setup notifications if enabled
@@ -103,13 +108,15 @@ export default function OnboardingScreen() {
             soundEnabled: true,
           });
         }
-        
+
+        console.log('Onboarding completed successfully, navigating to tabs');
+
         // Navigate to main app
         router.replace('/(tabs)');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error saving onboarding data:', error);
         await hapticsService.errorAction();
-        
+
         // Show user-friendly error message
         if (error.code === '23505') {
           Alert.alert(
@@ -138,30 +145,27 @@ export default function OnboardingScreen() {
         {spiritualLevels.map((level) => (
           <TouchableOpacity
             key={level.id}
-            className={`p-6 rounded-xl mb-4 border-2 ${
-              selectedLevel === level.id
+            className={`p-6 rounded-xl mb-4 border-2 ${selectedLevel === level.id
                 ? 'border-orange-500 bg-orange-50'
                 : 'border-gray-200 bg-white'
-            }`}
+              }`}
             onPress={async () => {
               setSelectedLevel(level.id);
               await hapticsService.selection();
             }}
           >
             <View className="flex-row items-center">
-              <View className={`w-12 h-12 rounded-full justify-center items-center mr-4 ${
-                selectedLevel === level.id ? 'bg-orange-500' : 'bg-gray-100'
-              }`}>
-                <Ionicons 
-                  name={level.icon as any} 
-                  size={24} 
-                  color={selectedLevel === level.id ? 'white' : '#6B7280'} 
+              <View className={`w-12 h-12 rounded-full justify-center items-center mr-4 ${selectedLevel === level.id ? 'bg-orange-500' : 'bg-gray-100'
+                }`}>
+                <Ionicons
+                  name={level.icon as any}
+                  size={24}
+                  color={selectedLevel === level.id ? 'white' : '#6B7280'}
                 />
               </View>
               <View className="flex-1">
-                <Text className={`text-lg font-semibold ${
-                  selectedLevel === level.id ? 'text-orange-600' : 'text-gray-900'
-                }`}>
+                <Text className={`text-lg font-semibold ${selectedLevel === level.id ? 'text-orange-600' : 'text-gray-900'
+                  }`}>
                   {level.title}
                 </Text>
                 <Text className="text-gray-600">{level.description}</Text>
@@ -187,26 +191,24 @@ export default function OnboardingScreen() {
             {notificationTimes.map((time) => (
               <TouchableOpacity
                 key={time.id}
-                className={`w-[48%] p-4 rounded-xl mb-3 border-2 ${
-                  selectedTime === time.id
+                className={`w-[48%] p-4 rounded-xl mb-3 border-2 ${selectedTime === time.id
                     ? 'border-orange-500 bg-orange-50'
                     : 'border-gray-200 bg-white'
-                }`}
+                  }`}
                 onPress={async () => {
                   setSelectedTime(time.id);
                   await hapticsService.selection();
                 }}
               >
-                <Text className={`text-center font-semibold ${
-                  selectedTime === time.id ? 'text-orange-600' : 'text-gray-900'
-                }`}>
+                <Text className={`text-center font-semibold ${selectedTime === time.id ? 'text-orange-600' : 'text-gray-900'
+                  }`}>
                   {time.label}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
-        
+
         <View className="bg-gray-50 rounded-xl p-6">
           <Text className="text-lg font-semibold text-gray-900 mb-2">
             Notifications
@@ -215,17 +217,15 @@ export default function OnboardingScreen() {
             Get daily reminders to read your verse
           </Text>
           <TouchableOpacity
-            className={`w-12 h-8 rounded-full flex-row items-center ${
-              notificationsEnabled ? 'bg-orange-500' : 'bg-gray-300'
-            }`}
+            className={`w-12 h-8 rounded-full flex-row items-center ${notificationsEnabled ? 'bg-orange-500' : 'bg-gray-300'
+              }`}
             onPress={async () => {
               setNotificationsEnabled(!notificationsEnabled);
               await hapticsService.buttonPress();
             }}
           >
-            <View className={`w-6 h-6 rounded-full bg-white ml-1 ${
-              notificationsEnabled ? 'ml-5' : 'ml-1'
-            }`} />
+            <View className={`w-6 h-6 rounded-full bg-white ml-1 ${notificationsEnabled ? 'ml-5' : 'ml-1'
+              }`} />
           </TouchableOpacity>
         </View>
       </View>
@@ -241,7 +241,7 @@ export default function OnboardingScreen() {
         Welcome to Gitaverse!
       </Text>
       <Text className="text-gray-600 text-center leading-6 px-8">
-        Your spiritual journey begins now. You'll receive daily verses tailored to your level, 
+        Your spiritual journey begins now. You'll receive daily verses tailored to your level,
         helping you grow and find inner peace.
       </Text>
     </View>
@@ -260,10 +260,22 @@ export default function OnboardingScreen() {
     }
   };
 
+  // Show loading while checking onboarding status
+  if (isLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-white">
+        <StatusBar barStyle="dark-content" />
+        <View className="flex-1 justify-center items-center">
+          <Text className="text-lg text-gray-600">Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Header */}
       <View className="px-8 pt-8 pb-6">
         <View className="flex-row items-center justify-between mb-6">
@@ -273,18 +285,17 @@ export default function OnboardingScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#374151" />
           </TouchableOpacity>
-          
+
           <View className="flex-row">
             {steps.map((_, index) => (
               <View
                 key={index}
-                className={`w-2 h-2 rounded-full mx-1 ${
-                  index <= currentStep ? 'bg-orange-500' : 'bg-gray-300'
-                }`}
+                className={`w-2 h-2 rounded-full mx-1 ${index <= currentStep ? 'bg-orange-500' : 'bg-gray-300'
+                  }`}
               />
             ))}
           </View>
-          
+
           <TouchableOpacity
             onPress={handleSkip}
             className="w-10 h-10 rounded-full bg-gray-100 justify-center items-center"
@@ -292,7 +303,7 @@ export default function OnboardingScreen() {
             <Text className="text-gray-600 font-medium">Skip</Text>
           </TouchableOpacity>
         </View>
-        
+
         <Text className="text-2xl font-bold text-gray-900 mb-2">
           {steps[currentStep].title}
         </Text>
@@ -300,21 +311,20 @@ export default function OnboardingScreen() {
           {steps[currentStep].subtitle}
         </Text>
       </View>
-      
+
       {/* Content */}
       <ScrollView className="flex-1 px-8" showsVerticalScrollIndicator={false}>
         {renderCurrentStep()}
       </ScrollView>
-      
+
       {/* Footer */}
       <View className="px-8 pb-8">
         <TouchableOpacity
-          className={`rounded-xl py-4 ${
-            (currentStep === 0 && !selectedLevel) || 
-            (currentStep === 1 && !selectedTime)
+          className={`rounded-xl py-4 ${(currentStep === 0 && !selectedLevel) ||
+              (currentStep === 1 && !selectedTime)
               ? 'bg-gray-300'
               : 'bg-orange-500'
-          }`}
+            }`}
           onPress={handleNext}
           disabled={(currentStep === 0 && !selectedLevel) || (currentStep === 1 && !selectedTime)}
         >

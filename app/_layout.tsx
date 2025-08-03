@@ -3,12 +3,11 @@ import '../global.css';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
-import { supabase } from '../utils/supabase';
-import { Session } from '@supabase/supabase-js';
-import { apiService } from '../utils/api';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { notificationService } from '../utils/notifications';
 import { hapticsService } from '../utils/haptics';
+import { useAuthStore } from '../store/authStore';
+import { useOnboardingStore } from '../store/onboardingStore';
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -16,13 +15,15 @@ export const unstable_settings = {
 };
 
 // Route guard hook
-function useProtectedRoute(session: Session | null, hasCompletedOnboarding: boolean, loading: boolean) {
+function useProtectedRoute() {
   const segments = useSegments();
   const router = useRouter();
+  const { session, isLoading: authLoading } = useAuthStore();
+  const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboardingStore();
 
   useEffect(() => {
     // Don't navigate while loading
-    if (loading) {
+    if (authLoading || onboardingLoading) {
       console.log('Still loading, skipping route guard...');
       return;
     }
@@ -55,20 +56,23 @@ function useProtectedRoute(session: Session | null, hasCompletedOnboarding: bool
           console.log('Redirecting to onboarding - authenticated but not onboarded');
           router.replace('/(auth)/onboarding' as any);
         }
+      } else if (session && isOnboarding && hasCompletedOnboarding) {
+        // User is on onboarding screen but has already completed onboarding
+        console.log('User already completed onboarding, redirecting to tabs');
+        router.replace('/(tabs)/' as any);
       }
-    }, 100);
+    }, 200); // Increased delay to reduce frequency
 
     return () => clearTimeout(timeoutId);
-  }, [session, hasCompletedOnboarding, segments, loading]);
+  }, [session, hasCompletedOnboarding, segments, authLoading, onboardingLoading]);
 }
 
 export default function RootLayout() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const { session, isLoading: authLoading, initializeAuth, cleanup } = useAuthStore();
+  const { isLoading: onboardingLoading, checkOnboardingStatus, resetOnboarding } = useOnboardingStore();
 
   // Use the route guard
-  useProtectedRoute(session, hasCompletedOnboarding, loading);
+  useProtectedRoute();
 
   useEffect(() => {
     // Initialize services
@@ -83,56 +87,53 @@ export default function RootLayout() {
 
     initializeServices();
 
-    // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
-      setSession(session);
+    // Force reset loading states to prevent deadlock
+    const resetLoadingStates = () => {
+      // Access the store's set function directly
+      useAuthStore.setState({ isLoading: false });
+      useOnboardingStore.setState({ isLoading: false });
+    };
 
-      if (session) {
-        // Check onboarding status
-        try {
-          const onboardingCompleted = await apiService.hasCompletedOnboarding();
-          console.log('Onboarding completed:', onboardingCompleted);
-          setHasCompletedOnboarding(onboardingCompleted);
-        } catch (error) {
-          console.error('Error checking onboarding status:', error);
-          setHasCompletedOnboarding(false);
-        }
-      }
+    // Reset loading states first
+    resetLoadingStates();
 
-      setLoading(false);
-    });
+    // Initialize auth
+    initializeAuth();
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.email);
-      setSession(session);
+    // Cleanup on unmount
+    return () => {
+      cleanup();
+    };
+  }, [initializeAuth, cleanup]);
 
-      if (session && event === 'SIGNED_IN') {
-        console.log('User signed in, checking onboarding status...');
-        // Check onboarding status for newly signed in user
-        try {
-          const onboardingCompleted = await apiService.hasCompletedOnboarding();
-          console.log('Onboarding completed after sign in:', onboardingCompleted);
-          setHasCompletedOnboarding(onboardingCompleted);
-        } catch (error) {
-          console.error('Error checking onboarding status:', error);
-          setHasCompletedOnboarding(false);
-        }
-      } else if (event === 'SIGNED_OUT') {
-        console.log('User signed out');
-        setHasCompletedOnboarding(false);
-      }
+  // Check onboarding status when session changes
+  useEffect(() => {
+    if (session && !onboardingLoading) {
+      // Add a small delay to prevent excessive calls
+      const timeoutId = setTimeout(() => {
+        checkOnboardingStatus();
+      }, 100);
 
-      setLoading(false);
-    });
+      return () => clearTimeout(timeoutId);
+    } else if (!session) {
+      // Reset onboarding state when user signs out
+      resetOnboarding();
+    }
+  }, [session, checkOnboardingStatus, onboardingLoading, resetOnboarding]);
 
-    return () => subscription.unsubscribe();
+  // Add a timeout to prevent infinite loading
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      console.log('Loading timeout reached, forcing app to continue...');
+      setLoadingTimeout(true);
+    }, 5000); // 5 second timeout
+
+    return () => clearTimeout(timeout);
   }, []);
 
-  if (loading) {
+  if ((authLoading || onboardingLoading) && !loadingTimeout) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
         <Text style={{ fontSize: 18, color: '#374151' }}>Loading Gitaverse...</Text>

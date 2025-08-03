@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Verse } from '../store/verseStore';
+import { VerseWithChapter } from '../types';
 
 interface VerseCardProps {
-  verse: Verse;
+  verse: VerseWithChapter;
   onMarkAsRead?: () => void;
   onFavorite?: () => void;
   onShare?: () => void;
@@ -28,7 +28,7 @@ export default function VerseCard({
     <View className="bg-white rounded-2xl p-6 mb-4 shadow-sm">
       <View className="flex-row justify-between items-center mb-4">
         <Text className="text-lg font-semibold text-gray-800">
-          Chapter {verse.chapter} • Verse {verse.verse}
+          Chapter {verse.chapter?.chapter_number || 'Unknown'} • Verse {verse.verse_number}
         </Text>
         {onShare && (
           <TouchableOpacity onPress={onShare}>
@@ -40,7 +40,7 @@ export default function VerseCard({
       {/* Sanskrit Text */}
       <View className="mb-6">
         <Text className="text-lg text-center font-sanskrit mb-4 text-orange-600 leading-8">
-          {verse.sanskrit}
+          {verse.sanskrit_text}
         </Text>
 
         {/* Audio Button */}
@@ -59,7 +59,7 @@ export default function VerseCard({
       {/* English Translation */}
       <View className="mb-6">
         <Text className="text-base text-gray-700 leading-6">
-          {verse.translation}
+          {verse.english_translation}
         </Text>
       </View>
 

@@ -18,8 +18,8 @@ export const unstable_settings = {
 function useProtectedRoute() {
   const segments = useSegments();
   const router = useRouter();
-  const { session, isLoading: authLoading } = useAuthStore();
-  const { hasCompletedOnboarding, isLoading: onboardingLoading } = useOnboardingStore();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { isCompleted, isLoading: onboardingLoading } = useOnboardingStore();
 
   useEffect(() => {
     // Don't navigate while loading
@@ -35,28 +35,28 @@ function useProtectedRoute() {
       const isOnboarding = segments[1] === 'onboarding';
 
       console.log('Route guard check:', {
-        session: !!session,
-        hasCompletedOnboarding,
+        isAuthenticated,
+        isCompleted,
         inAuthGroup,
         inTabsGroup,
         isOnboarding,
         segments
       });
 
-      if (!session && !inAuthGroup) {
+      if (!isAuthenticated && !inAuthGroup) {
         // User is not authenticated and trying to access protected route
-        console.log('Redirecting to auth - no session');
+        console.log('Redirecting to auth - not authenticated');
         router.replace('/(auth)/welcome' as any);
-      } else if (session && inAuthGroup && !isOnboarding) {
+      } else if (isAuthenticated && inAuthGroup && !isOnboarding) {
         // User is authenticated but still in auth group (not in onboarding)
-        if (hasCompletedOnboarding) {
+        if (isCompleted) {
           console.log('Redirecting to tabs - authenticated and onboarded');
           router.replace('/(tabs)/' as any);
         } else {
           console.log('Redirecting to onboarding - authenticated but not onboarded');
           router.replace('/(auth)/onboarding' as any);
         }
-      } else if (session && isOnboarding && hasCompletedOnboarding) {
+      } else if (isAuthenticated && isOnboarding && isCompleted) {
         // User is on onboarding screen but has already completed onboarding
         console.log('User already completed onboarding, redirecting to tabs');
         router.replace('/(tabs)/' as any);
@@ -64,17 +64,20 @@ function useProtectedRoute() {
     }, 200); // Increased delay to reduce frequency
 
     return () => clearTimeout(timeoutId);
-  }, [session, hasCompletedOnboarding, segments, authLoading, onboardingLoading]);
+  }, [isAuthenticated, isCompleted, segments, authLoading, onboardingLoading]);
 }
 
 export default function RootLayout() {
-  const { session, isLoading: authLoading, initializeAuth, cleanup } = useAuthStore();
-  const { isLoading: onboardingLoading, checkOnboardingStatus, resetOnboarding } = useOnboardingStore();
+  const { isLoading: authLoading, initializeAuth } = useAuthStore();
+  const { isLoading: onboardingLoading } = useOnboardingStore();
 
   // Use the route guard
   useProtectedRoute();
 
   useEffect(() => {
+    // Initialize auth
+    initializeAuth();
+
     // Initialize services
     const initializeServices = async () => {
       try {
@@ -86,40 +89,7 @@ export default function RootLayout() {
     };
 
     initializeServices();
-
-    // Force reset loading states to prevent deadlock
-    const resetLoadingStates = () => {
-      // Access the store's set function directly
-      useAuthStore.setState({ isLoading: false });
-      useOnboardingStore.setState({ isLoading: false });
-    };
-
-    // Reset loading states first
-    resetLoadingStates();
-
-    // Initialize auth
-    initializeAuth();
-
-    // Cleanup on unmount
-    return () => {
-      cleanup();
-    };
-  }, [initializeAuth, cleanup]);
-
-  // Check onboarding status when session changes
-  useEffect(() => {
-    if (session && !onboardingLoading) {
-      // Add a small delay to prevent excessive calls
-      const timeoutId = setTimeout(() => {
-        checkOnboardingStatus();
-      }, 100);
-
-      return () => clearTimeout(timeoutId);
-    } else if (!session) {
-      // Reset onboarding state when user signs out
-      resetOnboarding();
-    }
-  }, [session, checkOnboardingStatus, onboardingLoading, resetOnboarding]);
+  }, []); // Remove initializeAuth from dependencies to avoid re-initialization
 
   // Add a timeout to prevent infinite loading
   const [loadingTimeout, setLoadingTimeout] = useState(false);

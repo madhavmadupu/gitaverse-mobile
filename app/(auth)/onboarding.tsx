@@ -51,15 +51,15 @@ export default function OnboardingScreen() {
   const [selectedTime, setSelectedTime] = useState('07:00');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
-  const { hasCompletedOnboarding, setOnboardingCompleted, isLoading } = useOnboardingStore();
+  const { isCompleted, setCompleted, setLoading, updateFormData, isLoading } = useOnboardingStore();
 
   // Check if user has already completed onboarding
   useEffect(() => {
-    if (hasCompletedOnboarding) {
+    if (isCompleted) {
       console.log('User has already completed onboarding, redirecting to tabs');
       router.replace('/(tabs)');
     }
-  }, [hasCompletedOnboarding, router]);
+  }, [isCompleted, router]);
 
   const steps = [
     {
@@ -92,11 +92,22 @@ export default function OnboardingScreen() {
         });
 
         // Use the Zustand store to complete onboarding
-        await setOnboardingCompleted({
-          spiritualLevel: selectedLevel,
-          dailyReminderTime: selectedTime,
-          notificationsEnabled: notificationsEnabled,
-        });
+        setLoading(true);
+        try {
+          // Update form data
+          updateFormData({
+            fullName: '', // This could be collected in a future step
+            spiritualLevel: selectedLevel as 'beginner' | 'intermediate' | 'advanced',
+            preferredLanguage: 'english',
+            reminderTime: selectedTime,
+            notificationsEnabled: notificationsEnabled,
+          });
+          
+          // Mark onboarding as completed
+          setCompleted(true);
+        } finally {
+          setLoading(false);
+        }
 
         // Setup notifications if enabled
         if (notificationsEnabled) {

@@ -1,115 +1,46 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiService } from '../utils/api';
+import { OnboardingState, OnboardingForm } from '../types';
 
-interface OnboardingState {
-  hasCompletedOnboarding: boolean;
-  spiritualLevel: string;
-  dailyReminderTime: string;
-  notificationsEnabled: boolean;
-  isLoading: boolean;
-  checkOnboardingStatus: () => Promise<void>;
-  setOnboardingCompleted: (data: {
-    spiritualLevel: string;
-    dailyReminderTime: string;
-    notificationsEnabled: boolean;
-  }) => Promise<void>;
+interface OnboardingStore extends OnboardingState {
+  // Actions
+  setCompleted: (completed: boolean) => void;
+  setCurrentStep: (step: number) => void;
+  updateFormData: (data: Partial<OnboardingForm>) => void;
+  setLoading: (loading: boolean) => void;
   resetOnboarding: () => void;
 }
 
-export const useOnboardingStore = create<OnboardingState>()(
+const initialState: OnboardingState = {
+  isCompleted: false,
+  currentStep: 0,
+  formData: {},
+  isLoading: false,
+};
+
+export const useOnboardingStore = create<OnboardingStore>()(
   persist(
-    (set, get) => ({
-      hasCompletedOnboarding: false,
-      spiritualLevel: '',
-      dailyReminderTime: '07:00',
-      notificationsEnabled: true,
-      isLoading: false, // Start with false to prevent deadlock
+    (set) => ({
+      ...initialState,
 
-      checkOnboardingStatus: async () => {
-        // Don't set loading if already loading to prevent race conditions
-        const currentState = get();
-        if (currentState.isLoading) {
-          console.log('Onboarding check already in progress, skipping...');
-          return;
-        }
-        
-        // If we already know the user has completed onboarding, don't check again
-        if (currentState.hasCompletedOnboarding) {
-          console.log('User already completed onboarding, skipping check...');
-          return;
-        }
-        
-        set({ isLoading: true });
-        try {
-          const hasCompleted = await apiService.hasCompletedOnboarding();
-          console.log('Onboarding status check result:', hasCompleted);
-          set({ hasCompletedOnboarding: hasCompleted });
-        } catch (error) {
-          console.error('Error checking onboarding status:', error);
-          set({ hasCompletedOnboarding: false });
-        } finally {
-          set({ isLoading: false });
-        }
-      },
+      // Actions
+      setCompleted: (isCompleted) => set({ isCompleted }),
 
-      setOnboardingCompleted: async (data) => {
-        set({ isLoading: true });
-        try {
-          console.log('Setting onboarding completed with data:', data);
-          
-          // Update user metadata with spiritual level
-          const { error: userError } = await apiService.updateUserMetadata({
-            spiritual_level: data.spiritualLevel,
-          });
+      setCurrentStep: (currentStep) => set({ currentStep }),
 
-          if (userError) {
-            throw userError;
-          }
+      updateFormData: (data) =>
+        set((state) => ({
+          formData: { ...state.formData, ...data },
+        })),
 
-          // Save user settings
-          await apiService.updateUserSettings({
-            daily_reminder_time: data.dailyReminderTime,
-            notification_enabled: data.notificationsEnabled,
-          });
+      setLoading: (isLoading) => set({ isLoading }),
 
-          // Update local state
-          set({
-            hasCompletedOnboarding: true,
-            spiritualLevel: data.spiritualLevel,
-            dailyReminderTime: data.dailyReminderTime,
-            notificationsEnabled: data.notificationsEnabled,
-          });
-
-          console.log('Onboarding completed successfully');
-        } catch (error) {
-          console.error('Error setting onboarding completed:', error);
-          throw error;
-        } finally {
-          set({ isLoading: false });
-        }
-      },
-
-      resetOnboarding: () => {
-        set({
-          hasCompletedOnboarding: false,
-          spiritualLevel: '',
-          dailyReminderTime: '07:00',
-          notificationsEnabled: true,
-        });
-      },
+      resetOnboarding: () => set(initialState),
     }),
     {
-      name: 'onboarding-storage',
+      name: 'onboarding-store',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({
-        hasCompletedOnboarding: state.hasCompletedOnboarding,
-        spiritualLevel: state.spiritualLevel,
-        dailyReminderTime: state.dailyReminderTime,
-        notificationsEnabled: state.notificationsEnabled,
-        // Don't persist isLoading to prevent deadlock
-      }),
     }
   )
 ); 

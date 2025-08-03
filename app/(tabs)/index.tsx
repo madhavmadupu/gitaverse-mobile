@@ -70,7 +70,7 @@ export default function TodayScreen() {
     if (todayVerse) {
       try {
         await hapticsService.buttonPress();
-        const shareText = `Today's Bhagavad Gita Verse:\n\n${todayVerse.sanskrit}\n\n"${todayVerse.translation}"\n\nChapter ${todayVerse.chapter}, Verse ${todayVerse.verse}\n\n#BhagavadGita #DailyWisdom`;
+        const shareText = `Today's Bhagavad Gita Verse:\n\n${todayVerse.sanskrit_text}\n\n"${todayVerse.english_translation}"\n\nChapter ${todayVerse.chapter?.chapter_number || 'Unknown'}, Verse ${todayVerse.verse_number}\n\n#BhagavadGita #DailyWisdom`;
 
         await Share.share(
           {
@@ -105,7 +105,7 @@ export default function TodayScreen() {
         console.log('Playing TTS for verse:', todayVerse.id);
 
         // Use speech service for text-to-speech
-        const textToSpeak = `${todayVerse.sanskrit} ${todayVerse.translation}`;
+        const textToSpeak = `${todayVerse.sanskrit_text} ${todayVerse.english_translation}`;
         await speechService.speak(textToSpeak, {
           language: 'hi-IN',
           pitch: 1,
@@ -200,7 +200,7 @@ export default function TodayScreen() {
 
           {/* Keywords */}
           <View className="flex-row flex-wrap">
-            {todayVerse?.keywords.map((keyword, index) => (
+            {todayVerse?.keywords?.map((keyword, index) => (
               <View key={index} className="bg-orange-50 px-3 py-1 rounded-full mr-2 mb-2">
                 <Text className="text-orange-600 text-sm font-medium">
                   #{keyword}

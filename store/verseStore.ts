@@ -1,58 +1,34 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-export interface Verse {
-  id: string;
-  chapter: number;
-  verse: number;
-  sanskrit: string;
-  translation: string;
-  explanation: string;
-  keywords: string[];
-  audioUrl?: string;
-}
-
-export interface UserProgress {
-  currentStreak: number;
-  longestStreak: number;
-  totalVerses: number;
-  totalChapters: number;
-  totalTime: number; // in minutes
-  lastReadDate?: string;
-  completedVerses: string[]; // verse IDs
-  favoriteVerses: string[]; // verse IDs
-}
-
-export interface UserSettings {
-  notificationsEnabled: boolean;
-  soundEnabled: boolean;
-  hapticEnabled: boolean;
-  reminderTime: string; // HH:MM format
-  language: 'english' | 'hindi';
-  theme: 'light' | 'dark' | 'auto';
-  spiritualLevel: 'beginner' | 'intermediate' | 'advanced';
-}
+import {
+  Verse,
+  VerseWithChapter,
+  ProgressSummary,
+  AppSettings,
+  UUID,
+  DateString,
+} from '../types';
 
 interface VerseStore {
   // State
-  todayVerse: Verse | null;
+  todayVerse: VerseWithChapter | null;
   isLoading: boolean;
   hasReadToday: boolean;
-  userProgress: UserProgress;
-  userSettings: UserSettings;
+  userProgress: ProgressSummary;
+  userSettings: AppSettings;
   
   // Actions
-  setTodayVerse: (verse: Verse) => void;
+  setTodayVerse: (verse: VerseWithChapter) => void;
   setLoading: (loading: boolean) => void;
-  markAsRead: (verseId: string) => void;
-  toggleFavorite: (verseId: string) => void;
-  updateProgress: (progress: Partial<UserProgress>) => void;
-  updateSettings: (settings: Partial<UserSettings>) => void;
+  markAsRead: (verseId: UUID) => void;
+  toggleFavorite: (verseId: UUID) => void;
+  updateProgress: (progress: Partial<ProgressSummary>) => void;
+  updateSettings: (settings: Partial<AppSettings>) => void;
   resetProgress: () => void;
 }
 
-const initialProgress: UserProgress = {
+const initialProgress: ProgressSummary = {
   currentStreak: 0,
   longestStreak: 0,
   totalVerses: 0,
@@ -62,7 +38,7 @@ const initialProgress: UserProgress = {
   favoriteVerses: [],
 };
 
-const initialSettings: UserSettings = {
+const initialSettings: AppSettings = {
   notificationsEnabled: true,
   soundEnabled: true,
   hapticEnabled: true,
@@ -70,6 +46,8 @@ const initialSettings: UserSettings = {
   language: 'english',
   theme: 'light',
   spiritualLevel: 'beginner',
+  fontSize: 'medium',
+  weekendNotifications: true,
 };
 
 export const useVerseStore = create<VerseStore>()(
@@ -89,7 +67,7 @@ export const useVerseStore = create<VerseStore>()(
       
       markAsRead: (verseId) => {
         const { userProgress } = get();
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0] as DateString;
         const lastRead = userProgress.lastReadDate;
         
         let newStreak = userProgress.currentStreak;
@@ -114,7 +92,7 @@ export const useVerseStore = create<VerseStore>()(
           newStreak = 1;
         }
         
-        const updatedProgress: UserProgress = {
+        const updatedProgress: ProgressSummary = {
           ...userProgress,
           currentStreak: newStreak,
           longestStreak: Math.max(newStreak, userProgress.longestStreak),
@@ -169,11 +147,6 @@ export const useVerseStore = create<VerseStore>()(
     {
       name: 'verse-store',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({
-        userProgress: state.userProgress,
-        userSettings: state.userSettings,
-        hasReadToday: state.hasReadToday,
-      }),
     }
   )
 ); 

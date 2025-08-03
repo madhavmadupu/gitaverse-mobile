@@ -1,4 +1,37 @@
-import { Verse } from '../store/verseStore';
+import { 
+  Verse, 
+  VerseWithChapter, 
+  Chapter, 
+  User, 
+  UserProgress, 
+  UserSettings,
+  ProgressSummary,
+  AppSettings,
+  UUID,
+  Timestamp,
+  DateString,
+  TimeString,
+  SpiritualLevel,
+  DifficultyLevel,
+  Theme,
+  FontSize,
+  Language,
+  ExplanationType,
+  Achievement,
+  UserAchievement,
+  AIExplanation,
+  DailyVerse,
+  DailyStreak,
+  UserFavorites,
+  ChapterWithProgress,
+  UserProfile,
+  ApiResponse,
+  PaginatedResponse,
+  LoginForm,
+  SignupForm,
+  OnboardingForm,
+  VerseRatingForm
+} from '../types';
 import { supabase } from './supabase';
 
 const API_BASE_URL = process.env.GITAVERSE_API_BASE_URL || 'https://gitaverse.vercel.app/api/';
@@ -43,7 +76,7 @@ class ApiService {
   }
 
   // Get today's verse
-  async getTodayVerse(): Promise<Verse> {
+  async getTodayVerse(): Promise<VerseWithChapter> {
     try {
       const today = new Date().toISOString().split('T')[0];
 
@@ -63,15 +96,41 @@ class ApiService {
           .single();
 
         if (verse) {
-          return verse as Verse;
+          // Get chapter information
+          const { data: chapter } = await supabase
+            .from('chapters')
+            .select('*')
+            .eq('id', verse.chapter_id)
+            .single();
+          
+          return {
+            ...verse,
+            chapter,
+            isCompleted: false,
+            isFavorite: false,
+          } as VerseWithChapter;
         }
       }
 
       // Fallback to mock data if no daily verse found
-      return this.getMockTodayVerse();
+      const mockVerse = this.getMockTodayVerse();
+      const mockChapter = this.getMockChapters().find(c => c.id === mockVerse.chapter_id);
+      return {
+        ...mockVerse,
+        chapter: mockChapter,
+        isCompleted: false,
+        isFavorite: false,
+      } as VerseWithChapter;
     } catch (error) {
       console.error("Error fetching today's verse:", error);
-      return this.getMockTodayVerse();
+      const mockVerse = this.getMockTodayVerse();
+      const mockChapter = this.getMockChapters().find(c => c.id === mockVerse.chapter_id);
+      return {
+        ...mockVerse,
+        chapter: mockChapter,
+        isCompleted: false,
+        isFavorite: false,
+      } as VerseWithChapter;
     }
   }
 
@@ -141,7 +200,7 @@ class ApiService {
   }
 
   // Get user progress
-  async getUserProgress() {
+  async getUserProgress(): Promise<ProgressSummary> {
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) {
@@ -151,7 +210,9 @@ class ApiService {
           totalVerses: 0,
           totalChapters: 0,
           totalTime: 0,
-          lastReadDate: null,
+          lastReadDate: undefined,
+          completedVerses: [],
+          favoriteVerses: [],
         };
       }
 
@@ -166,14 +227,15 @@ class ApiService {
       const totalVerses = data?.length || 0;
       const lastReadDate =
         data?.length > 0
-          ? new Date(Math.max(...data.map((d) => new Date(d.read_at).getTime())))
-          : null;
+          ? new Date(Math.max(...data.map((d) => new Date(d.completed_at).getTime()))).toISOString().split('T')[0]
+          : undefined;
 
       // Calculate streak (simplified)
       let currentStreak = 0;
       if (lastReadDate) {
         const today = new Date();
-        const diffTime = Math.abs(today.getTime() - lastReadDate.getTime());
+        const lastReadDateObj = new Date(lastReadDate);
+        const diffTime = Math.abs(today.getTime() - lastReadDateObj.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         currentStreak = diffDays <= 1 ? 1 : 0;
       }
@@ -184,7 +246,9 @@ class ApiService {
         totalVerses,
         totalChapters: Math.floor(totalVerses / 10), // Simplified
         totalTime: totalVerses * 5, // 5 minutes per verse
-        lastReadDate,
+        lastReadDate: lastReadDate || undefined,
+        completedVerses: [],
+        favoriteVerses: [],
       };
     } catch (error) {
       console.error('Error fetching user progress:', error);
@@ -194,7 +258,9 @@ class ApiService {
         totalVerses: 0,
         totalChapters: 0,
         totalTime: 0,
-        lastReadDate: null,
+        lastReadDate: undefined,
+        completedVerses: [],
+        favoriteVerses: [],
       };
     }
   }
@@ -455,64 +521,76 @@ class ApiService {
   getMockTodayVerse(): Verse {
     return {
       id: '2-47',
-      chapter: 2,
-      verse: 47,
-      sanskrit: 'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन। मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥',
-      translation:
+      chapter_id: 'mock-chapter-2',
+      verse_number: 47,
+      sanskrit_text: 'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन। मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥',
+      english_translation:
         'You have the right to work only, but never to its fruits. Let not the fruits of action be your motive, nor let your attachment be to inaction.',
       explanation:
         'This verse teaches us the principle of Karma Yoga - the yoga of selfless action. It reminds us to focus on our duties and responsibilities without being attached to the results. When we perform our actions with dedication but without expecting specific outcomes, we find inner peace and spiritual growth.',
       keywords: ['karma', 'detachment', 'duty', 'selfless action'],
-      audioUrl: 'https://example.com/audio/2-47.mp3',
+      audio_url: 'https://example.com/audio/2-47.mp3',
+      difficulty_level: 'intermediate',
+      created_at: new Date().toISOString(),
     };
   }
 
-  getMockChapters() {
+  getMockChapters(): Chapter[] {
     return [
       {
-        id: 1,
-        number: 1,
-        title: 'Arjuna Vishada Yoga',
-        titleSanskrit: 'अर्जुन विषाद योग',
-        verseCount: 47,
-        completedVerses: 12,
+        id: 'mock-chapter-1',
+        chapter_number: 1,
+        title_sanskrit: 'अर्जुन विषाद योग',
+        title_english: 'Arjuna Vishada Yoga',
+        title_hindi: 'अर्जुन विषाद योग',
+        description: "The Yoga of Arjuna's Dejection",
+        verse_count: 47,
         theme: "The Yoga of Arjuna's Dejection",
+        created_at: new Date().toISOString(),
       },
       {
-        id: 2,
-        number: 2,
-        title: 'Sankhya Yoga',
-        titleSanskrit: 'सांख्य योग',
-        verseCount: 72,
-        completedVerses: 25,
+        id: 'mock-chapter-2',
+        chapter_number: 2,
+        title_sanskrit: 'सांख्य योग',
+        title_english: 'Sankhya Yoga',
+        title_hindi: 'सांख्य योग',
+        description: 'Transcendental Knowledge',
+        verse_count: 72,
         theme: 'Transcendental Knowledge',
+        created_at: new Date().toISOString(),
       },
       {
-        id: 3,
-        number: 3,
-        title: 'Karma Yoga',
-        titleSanskrit: 'कर्म योग',
-        verseCount: 43,
-        completedVerses: 8,
+        id: 'mock-chapter-3',
+        chapter_number: 3,
+        title_sanskrit: 'कर्म योग',
+        title_english: 'Karma Yoga',
+        title_hindi: 'कर्म योग',
+        description: 'The Eternal Duties of Human Beings',
+        verse_count: 43,
         theme: 'The Eternal Duties of Human Beings',
+        created_at: new Date().toISOString(),
       },
       {
-        id: 4,
-        number: 4,
-        title: 'Jnana Karma Sanyasa Yoga',
-        titleSanskrit: 'ज्ञान कर्म संन्यास योग',
-        verseCount: 42,
-        completedVerses: 15,
+        id: 'mock-chapter-4',
+        chapter_number: 4,
+        title_sanskrit: 'ज्ञान कर्म संन्यास योग',
+        title_english: 'Jnana Karma Sanyasa Yoga',
+        title_hindi: 'ज्ञान कर्म संन्यास योग',
+        description: 'The Eternal Duties of Human Beings',
+        verse_count: 42,
         theme: 'The Eternal Duties of Human Beings',
+        created_at: new Date().toISOString(),
       },
       {
-        id: 5,
-        number: 5,
-        title: 'Karma Sanyasa Yoga',
-        titleSanskrit: 'कर्म संन्यास योग',
-        verseCount: 29,
-        completedVerses: 5,
+        id: 'mock-chapter-5',
+        chapter_number: 5,
+        title_sanskrit: 'कर्म संन्यास योग',
+        title_english: 'Karma Sanyasa Yoga',
+        title_hindi: 'कर्म संन्यास योग',
+        description: 'Action in Krishna Consciousness',
+        verse_count: 29,
         theme: 'Action in Krishna Consciousness',
+        created_at: new Date().toISOString(),
       },
     ];
   }

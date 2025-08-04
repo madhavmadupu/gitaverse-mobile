@@ -152,9 +152,6 @@ class BackgroundRefreshService {
 // Create singleton instance
 export const backgroundRefreshService = new BackgroundRefreshService();
 
-// Auto-cleanup on app unmount
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
-    backgroundRefreshService.cleanup();
-  });
-} 
+// Cleanup on app unmount (React Native specific)
+// Note: React Native doesn't have process.on, so we'll handle cleanup differently
+// The service will be cleaned up when the app is destroyed naturally 

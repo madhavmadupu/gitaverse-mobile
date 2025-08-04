@@ -6,7 +6,7 @@ import { apiService } from '../utils/api';
 import { performanceMonitor } from '../utils/performanceMonitor';
 
 // Extended interface for library display with progress
-interface ChapterWithProgress extends Chapter {
+export interface ChapterWithProgress extends Chapter {
   completedVerses: number;
   lastReadAt?: string;
   isFavorite?: boolean;
@@ -352,29 +352,20 @@ export const useLibraryStore = create<LibraryStore>()(
     {
       name: 'library-store',
       storage: createJSONStorage(() => AsyncStorage),
-      // Custom serialization for Map objects
-      serialize: (state) => {
-        const serializedState = {
-          ...state,
-          cache: {
-            ...state.cache,
-            searchCache: Array.from(state.cache.searchCache.entries()),
-            filterCache: Array.from(state.cache.filterCache.entries()),
-          }
-        };
-        return JSON.stringify(serializedState);
-      },
-      // Custom deserialization for Map objects
-      deserialize: (str) => {
-        const parsed = JSON.parse(str);
-        return {
-          ...parsed,
-          cache: {
-            ...parsed.cache,
-            searchCache: new Map(parsed.cache.searchCache || []),
-            filterCache: new Map(parsed.cache.filterCache || []),
-          }
-        };
+      partialize: (state) => ({
+        ...state,
+        cache: {
+          ...state.cache,
+          searchCache: Array.from(state.cache.searchCache.entries()),
+          filterCache: Array.from(state.cache.filterCache.entries()),
+        },
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          // Convert arrays back to Maps
+          state.cache.searchCache = new Map(state.cache.searchCache || []);
+          state.cache.filterCache = new Map(state.cache.filterCache || []);
+        }
       },
     }
   )

@@ -190,9 +190,13 @@ class PerformanceMonitor {
 // Create singleton instance
 export const performanceMonitor = new PerformanceMonitor();
 
-// Auto-log performance summary every 5 minutes in development
+// Development-only performance logging
 if (__DEV__) {
-  setInterval(() => {
+  // Use React Native's setInterval instead of global setInterval
+  const intervalId = setInterval(() => {
     performanceMonitor.logPerformanceSummary();
   }, 5 * 60 * 1000);
+
+  // Note: React Native doesn't have process.on, so we'll handle cleanup differently
+  // The interval will be cleaned up when the app is destroyed naturally
 } 

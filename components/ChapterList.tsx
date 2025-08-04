@@ -22,6 +22,9 @@ interface ChapterListProps {
   onRefresh: () => void;
   searchQuery: string;
   selectedFilter: string;
+  onClearSearch: () => void;
+  onViewAllChapters: () => void;
+  onRetry: () => void;
 }
 
 // Memoized individual chapter item
@@ -246,11 +249,7 @@ const ChapterList = memo(({
   onClearSearch,
   onViewAllChapters,
   onRetry,
-}: ChapterListProps & {
-  onClearSearch?: () => void;
-  onViewAllChapters?: () => void;
-  onRetry?: () => void;
-}) => {
+}: ChapterListProps) => {
   const handleClearSearch = useCallback(() => {
     onClearSearch?.();
   }, [onClearSearch]);

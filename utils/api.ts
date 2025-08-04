@@ -1,36 +1,10 @@
-import { 
-  Verse, 
-  VerseWithChapter, 
-  Chapter, 
-  User, 
-  UserProgress, 
-  UserSettings,
+import {
+  Verse,
+  VerseWithChapter,
+  Chapter,
   ProgressSummary,
-  AppSettings,
-  UUID,
-  Timestamp,
   DateString,
-  TimeString,
-  SpiritualLevel,
-  DifficultyLevel,
-  Theme,
-  FontSize,
-  Language,
-  ExplanationType,
-  Achievement,
-  UserAchievement,
-  AIExplanation,
-  DailyVerse,
-  DailyStreak,
-  UserFavorites,
   ChapterWithProgress,
-  UserProfile,
-  ApiResponse,
-  PaginatedResponse,
-  LoginForm,
-  SignupForm,
-  OnboardingForm,
-  VerseRatingForm
 } from '../types';
 import { supabase } from './supabase';
 
@@ -47,7 +21,11 @@ class ApiService {
   private isMockVerseId(verseId: string): boolean {
     // Mock verse IDs are in format "chapter-verse" (e.g., "2-47")
     // Real UUIDs contain curly braces or are in UUID format
-    return verseId.includes('-') && !verseId.includes('{') && !verseId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    return (
+      verseId.includes('-') &&
+      !verseId.includes('{') &&
+      !verseId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+    );
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -81,7 +59,7 @@ class ApiService {
       const today = new Date().toISOString().split('T')[0];
 
       // First try to get from daily_verses table
-      const { data: dailyVerse, error: dailyError } = await supabase
+      const { data: dailyVerse } = await supabase
         .from('daily_verses')
         .select('*')
         .eq('date', today)
@@ -89,7 +67,7 @@ class ApiService {
 
       if (dailyVerse) {
         // Get the full verse details
-        const { data: verse, error: verseError } = await supabase
+        const { data: verse } = await supabase
           .from('verses')
           .select('*')
           .eq('id', dailyVerse.verse_id)
@@ -102,7 +80,7 @@ class ApiService {
             .select('*')
             .eq('id', verse.chapter_id)
             .single();
-          
+
           return {
             ...verse,
             chapter,
@@ -114,7 +92,7 @@ class ApiService {
 
       // Fallback to mock data if no daily verse found
       const mockVerse = this.getMockTodayVerse();
-      const mockChapter = this.getMockChapters().find(c => c.id === mockVerse.chapter_id);
+      const mockChapter = this.getMockChapters().find((c) => c.id === mockVerse.chapter_id);
       return {
         ...mockVerse,
         chapter: mockChapter,
@@ -124,7 +102,7 @@ class ApiService {
     } catch (error) {
       console.error("Error fetching today's verse:", error);
       const mockVerse = this.getMockTodayVerse();
-      const mockChapter = this.getMockChapters().find(c => c.id === mockVerse.chapter_id);
+      const mockChapter = this.getMockChapters().find((c) => c.id === mockVerse.chapter_id);
       return {
         ...mockVerse,
         chapter: mockChapter,
@@ -139,8 +117,9 @@ class ApiService {
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) {
-        console.log('User not authenticated, returning mock verse');
-        return this.getTodayVerse();
+        console.log('User not authenticated, returning first verse from Chapter 1');
+        // Return Chapter 1, Verse 1 for unauthenticated users
+        return this.getFirstVerse();
       }
 
       // Get user's completed verses
@@ -149,8 +128,8 @@ class ApiService {
         .select('verse_id')
         .eq('user_id', userId);
 
-      const completedVerses = userProgressData?.map(item => item.verse_id) || [];
-      const totalVersesCompleted = completedVerses.length;
+      const completedVerses = userProgressData?.map((item) => item.verse_id) || [];
+      console.log('Completed verses:', completedVerses.length, 'verses');
 
       // Get all verses ordered by chapter and verse number for sequential progression
       const { data: allVerses, error: allError } = await supabase
@@ -160,13 +139,15 @@ class ApiService {
         .order('verse_number', { ascending: true });
 
       if (allError || !allVerses || allVerses.length === 0) {
-        console.log('No verses found, falling back to regular today verse');
-        return this.getTodayVerse();
+        console.log('No verses found in database, falling back to first verse');
+        return this.getFirstVerse();
       }
 
+      console.log('Total verses in database:', allVerses.length);
+
       // Find the next uncompleted verse (sequential progression)
-      const nextVerse = allVerses.find(verse => !completedVerses.includes(verse.id));
-      
+      const nextVerse = allVerses.find((verse) => !completedVerses.includes(verse.id));
+
       if (!nextVerse) {
         console.log('All verses completed, starting over from Chapter 1, Verse 1');
         // If all verses are completed, start over from the beginning
@@ -186,6 +167,11 @@ class ApiService {
           } as VerseWithChapter;
         }
       }
+
+      console.log(
+        'Next verse to read:',
+        `Chapter ${nextVerse.chapter_number}, Verse ${nextVerse.verse_number}`
+      );
 
       // Get chapter information for the next verse
       const { data: chapter } = await supabase
@@ -209,11 +195,10 @@ class ApiService {
         isCompleted: false, // This is the next verse to read, so it's not completed yet
         isFavorite: favoriteVerses.includes(nextVerse.id),
       } as VerseWithChapter;
-
     } catch (error) {
       console.error('Error fetching dynamic today verse:', error);
-      // Fallback to regular today verse
-      return this.getTodayVerse();
+      // Fallback to first verse instead of regular today verse
+      return this.getFirstVerse();
     }
   }
 
@@ -245,13 +230,13 @@ class ApiService {
         console.error('Error fetching chapters:', error);
         return this.getMockChapters();
       }
-      
+
       // If no chapters found in database, return mock data
       if (!data || data.length === 0) {
         console.log('No chapters found in database, using mock data');
         return this.getMockChapters();
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error fetching chapters:', error);
@@ -266,7 +251,7 @@ class ApiService {
       if (!userId) {
         console.log('User not authenticated, returning chapters without progress');
         const chapters = await this.getChapters();
-        return chapters.map(chapter => ({
+        return chapters.map((chapter) => ({
           ...chapter,
           completedVerses: 0,
           totalProgress: 0,
@@ -275,7 +260,7 @@ class ApiService {
 
       // Get all chapters
       const chapters = await this.getChapters();
-      
+
       // Get user's completed verses
       const { data: userProgress, error: progressError } = await supabase
         .from('user_progress')
@@ -284,14 +269,14 @@ class ApiService {
 
       if (progressError) {
         console.error('Error fetching user progress:', progressError);
-        return chapters.map(chapter => ({
+        return chapters.map((chapter) => ({
           ...chapter,
           completedVerses: 0,
           totalProgress: 0,
         }));
       }
 
-      const completedVerseIds = userProgress?.map(item => item.verse_id) || [];
+      const completedVerseIds = userProgress?.map((item) => item.verse_id) || [];
 
       // Get all verses to map verse IDs to chapters
       const { data: allVerses, error: versesError } = await supabase
@@ -300,7 +285,7 @@ class ApiService {
 
       if (versesError) {
         console.error('Error fetching verses for progress calculation:', versesError);
-        return chapters.map(chapter => ({
+        return chapters.map((chapter) => ({
           ...chapter,
           completedVerses: 0,
           totalProgress: 0,
@@ -309,16 +294,16 @@ class ApiService {
 
       // Create a map of verse ID to chapter ID
       const verseToChapterMap = new Map<string, string>();
-      allVerses?.forEach(verse => {
+      allVerses?.forEach((verse) => {
         verseToChapterMap.set(verse.id, verse.chapter_id);
       });
 
       // Calculate completion for each chapter
-      const chaptersWithProgress = chapters.map(chapter => {
-        const chapterCompletedVerses = completedVerseIds.filter(verseId => 
-          verseToChapterMap.get(verseId) === chapter.id
+      const chaptersWithProgress = chapters.map((chapter) => {
+        const chapterCompletedVerses = completedVerseIds.filter(
+          (verseId) => verseToChapterMap.get(verseId) === chapter.id
         );
-        
+
         const completedCount = chapterCompletedVerses.length;
         const totalVerses = chapter.verse_count || 0;
         const progressPercentage = totalVerses > 0 ? (completedCount / totalVerses) * 100 : 0;
@@ -334,7 +319,7 @@ class ApiService {
     } catch (error) {
       console.error('Error fetching chapters with progress:', error);
       const chapters = await this.getChapters();
-      return chapters.map(chapter => ({
+      return chapters.map((chapter) => ({
         ...chapter,
         completedVerses: 0,
         totalProgress: 0,
@@ -422,7 +407,7 @@ class ApiService {
         console.error('Supabase error marking verse as read:', error);
         throw error;
       }
-      
+
       console.log('Successfully marked verse as read:', verseId);
     } catch (error) {
       console.error('Error marking verse as read:', error);
@@ -448,7 +433,7 @@ class ApiService {
         return [];
       }
 
-      return data?.map(item => item.verse_id) || [];
+      return data?.map((item) => item.verse_id) || [];
     } catch (error) {
       console.error('Error fetching completed verses:', error);
       return [];
@@ -482,36 +467,47 @@ class ApiService {
 
       // Calculate progress from data
       const totalVerses = data?.length || 0;
-      const completedVerses = data?.map(item => item.verse_id) || [];
-      
+      const completedVerses = data?.map((item) => item.verse_id) || [];
+
       // Calculate total time spent
       const totalTime = data?.reduce((sum, item) => sum + (item.time_spent_seconds || 0), 0) || 0;
-      
+
       // Get last read date
-      const lastReadDate = data?.length > 0
-        ? new Date(data[0].completed_at).toISOString().split('T')[0] as DateString
-        : undefined;
+      const lastReadDate =
+        data?.length > 0
+          ? (new Date(data[0].completed_at).toISOString().split('T')[0] as DateString)
+          : undefined;
 
       // Calculate streak properly
       let currentStreak = 0;
       let longestStreak = 0;
-      
+
       if (data && data.length > 0) {
         const today = new Date();
-        const sortedDates = data
-          .map(item => new Date(item.completed_at).toISOString().split('T')[0])
+        today.setHours(0, 0, 0, 0); // Start of today
+
+        // Get unique dates when verses were completed
+        const uniqueDates = [
+          ...new Set(data.map((item) => new Date(item.completed_at).toISOString().split('T')[0])),
+        ]
           .sort()
           .reverse(); // Most recent first
+
+        console.log('Unique completion dates:', uniqueDates);
 
         // Calculate current streak
         let streakCount = 0;
         let currentDate = today;
-        
-        for (const readDate of sortedDates) {
+
+        for (const readDate of uniqueDates) {
           const readDateObj = new Date(readDate);
+          readDateObj.setHours(0, 0, 0, 0);
+
           const diffTime = currentDate.getTime() - readDateObj.getTime();
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
+
+          console.log(`Checking date: ${readDate}, diffDays: ${diffDays}`);
+
           if (diffDays <= 1) {
             streakCount++;
             currentDate = readDateObj;
@@ -519,11 +515,33 @@ class ApiService {
             break;
           }
         }
-        
+
         currentStreak = streakCount;
-        
-        // Calculate longest streak (simplified - could be enhanced)
-        longestStreak = Math.max(currentStreak, totalVerses);
+
+        // Calculate longest streak by checking consecutive days
+        let maxStreak = 0;
+        let tempStreak = 0;
+
+        for (let i = 0; i < uniqueDates.length - 1; i++) {
+          const currentDate = new Date(uniqueDates[i]);
+          const nextDate = new Date(uniqueDates[i + 1]);
+
+          const diffTime = currentDate.getTime() - nextDate.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays === 1) {
+            tempStreak++;
+          } else {
+            maxStreak = Math.max(maxStreak, tempStreak + 1);
+            tempStreak = 0;
+          }
+        }
+
+        // Don't forget the last streak
+        maxStreak = Math.max(maxStreak, tempStreak + 1);
+        longestStreak = Math.max(currentStreak, maxStreak);
+
+        console.log(`Calculated streak - current: ${currentStreak}, longest: ${longestStreak}`);
       }
 
       return {
@@ -555,7 +573,7 @@ class ApiService {
   async updateUserMetadata(metadata: any) {
     try {
       const { error } = await supabase.auth.updateUser({
-        data: metadata
+        data: metadata,
       });
 
       if (error) {
@@ -576,14 +594,13 @@ class ApiService {
     try {
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       console.log('Updating user settings for user:', user.id, 'Settings:', settings);
 
       // Ensure user record exists in users table
-      const { data: existingUser, error: userCheckError } = await supabase
+      const { data: existingUser } = await supabase
         .from('users')
         .select('id')
         .eq('id', user.id)
@@ -703,13 +720,12 @@ class ApiService {
   async hasCompletedOnboarding(): Promise<boolean> {
     try {
       const {
-        data: { user },
-        error: userError,
+        data: { user }
       } = await supabase.auth.getUser();
       console.log('Checking onboarding for user:', user?.id);
       if (!user) return false;
 
-            // Check if user has spiritual_level in metadata
+      // Check if user has spiritual_level in metadata
       const hasSpiritualLevel = !!user.user_metadata?.spiritual_level;
       console.log(
         'Has spiritual level:',
@@ -726,13 +742,13 @@ class ApiService {
         .single();
 
       console.log('User settings data:', settingsData, 'Error:', settingsError);
-      
+
       // If there's an error fetching settings, it might mean the user hasn't completed onboarding
       if (settingsError && settingsError.code !== 'PGRST116') {
         console.log('Error fetching user settings:', settingsError);
         return false;
       }
-      
+
       const hasReminderTime = !!settingsData?.daily_reminder_time;
       console.log(
         'Has reminder time:',
@@ -744,13 +760,16 @@ class ApiService {
       // Check if user has set their spiritual level and daily reminder time
       const hasCompleted = hasSpiritualLevel && hasReminderTime;
       console.log('Onboarding completed:', hasCompleted);
-      
+
       // Additional validation: ensure the spiritual level is not empty
-      if (hasCompleted && (!user.user_metadata?.spiritual_level || user.user_metadata.spiritual_level.trim() === '')) {
+      if (
+        hasCompleted &&
+        (!user.user_metadata?.spiritual_level || user.user_metadata.spiritual_level.trim() === '')
+      ) {
         console.log('Spiritual level is empty, considering onboarding incomplete');
         return false;
       }
-      
+
       return hasCompleted;
     } catch (error) {
       console.error('Error checking onboarding status:', error);
@@ -804,12 +823,50 @@ class ApiService {
   }
 
   // Mock data for development
+  getFirstVerse(): VerseWithChapter {
+    const firstVerse: Verse = {
+      id: '1-1',
+      chapter_id: 'mock-chapter-1',
+      verse_number: 1,
+      sanskrit_text:
+        'धृतराष्ट्र उवाच | धर्मक्षेत्रे कुरुक्षेत्रे समवेता युयुत्सवः | मामकाः पाण्डवाश्चैव किमकुर्वत सञ्जय ||',
+      english_translation:
+        'Dhritarashtra said: O Sanjaya, what did my sons and the sons of Pandu do when they had assembled together, eager for battle, on the holy plain of Kurukshetra?',
+      explanation:
+        'This opening verse sets the scene for the entire Bhagavad Gita. It introduces us to the battlefield of Kurukshetra, where the great war is about to begin. Dhritarashtra, the blind king, asks his advisor Sanjaya about the activities of both armies.',
+      keywords: ['beginning', 'battlefield', 'war', 'introduction'],
+      audio_url: 'https://example.com/audio/1-1.mp3',
+      difficulty_level: 'beginner',
+      created_at: new Date().toISOString(),
+    };
+
+    const firstChapter: Chapter = {
+      id: 'mock-chapter-1',
+      chapter_number: 1,
+      title_sanskrit: 'अर्जुन विषाद योग',
+      title_english: 'Arjuna Vishada Yoga',
+      title_hindi: 'अर्जुन विषाद योग',
+      description: "The Yoga of Arjuna's Dejection",
+      verse_count: 47,
+      theme: "The Yoga of Arjuna's Dejection",
+      created_at: new Date().toISOString(),
+    };
+
+    return {
+      ...firstVerse,
+      chapter: firstChapter,
+      isCompleted: false,
+      isFavorite: false,
+    } as VerseWithChapter;
+  }
+
   getMockTodayVerse(): Verse {
     return {
       id: '2-47',
       chapter_id: 'mock-chapter-2',
       verse_number: 47,
-      sanskrit_text: 'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन। मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥',
+      sanskrit_text:
+        'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन। मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥',
       english_translation:
         'You have the right to work only, but never to its fruits. Let not the fruits of action be your motive, nor let your attachment be to inaction.',
       explanation:
@@ -821,33 +878,33 @@ class ApiService {
     };
   }
 
-     getMockChapter(chapterNumber: number): Chapter {
-     return {
-       id: `mock-chapter-${chapterNumber}`,
-       chapter_number: chapterNumber,
-       title_sanskrit: `अध्याय ${chapterNumber}`,
-       title_english: `Chapter ${chapterNumber}`,
-       title_hindi: `अध्याय ${chapterNumber}`,
-       description: `Chapter ${chapterNumber} of the Bhagavad Gita`,
-       verse_count: 50,
-       theme: 'Spiritual Wisdom',
-       created_at: new Date().toISOString(),
-     };
-   }
+  getMockChapter(chapterNumber: number): Chapter {
+    return {
+      id: `mock-chapter-${chapterNumber}`,
+      chapter_number: chapterNumber,
+      title_sanskrit: `अध्याय ${chapterNumber}`,
+      title_english: `Chapter ${chapterNumber}`,
+      title_hindi: `अध्याय ${chapterNumber}`,
+      description: `Chapter ${chapterNumber} of the Bhagavad Gita`,
+      verse_count: 50,
+      theme: 'Spiritual Wisdom',
+      created_at: new Date().toISOString(),
+    };
+  }
 
-   getMockChapters(): Chapter[] {
-     return [
-       {
-         id: 'mock-chapter-1',
-         chapter_number: 1,
-         title_sanskrit: 'अर्जुन विषाद योग',
-         title_english: 'Arjuna Vishada Yoga',
-         title_hindi: 'अर्जुन विषाद योग',
-         description: "The Yoga of Arjuna's Dejection",
-         verse_count: 47,
-         theme: "The Yoga of Arjuna's Dejection",
-         created_at: new Date().toISOString(),
-       },
+  getMockChapters(): Chapter[] {
+    return [
+      {
+        id: 'mock-chapter-1',
+        chapter_number: 1,
+        title_sanskrit: 'अर्जुन विषाद योग',
+        title_english: 'Arjuna Vishada Yoga',
+        title_hindi: 'अर्जुन विषाद योग',
+        description: "The Yoga of Arjuna's Dejection",
+        verse_count: 47,
+        theme: "The Yoga of Arjuna's Dejection",
+        created_at: new Date().toISOString(),
+      },
       {
         id: 'mock-chapter-2',
         chapter_number: 2,
@@ -902,9 +959,12 @@ class ApiService {
           id: '1-1',
           chapter_id: 'mock-chapter-1',
           verse_number: 1,
-          sanskrit_text: 'धृतराष्ट्र उवाच | धर्मक्षेत्रे कुरुक्षेत्रे समवेता युयुत्सवः | मामकाः पाण्डवाश्चैव किमकुर्वत सञ्जय ||',
-          english_translation: 'Dhritarashtra said: O Sanjaya, what did my sons and the sons of Pandu do when they had assembled together, eager for battle, on the holy plain of Kurukshetra?',
-          hindi_translation: 'धृतराष्ट्र ने कहा: हे संजय, मेरे पुत्रों और पांडु के पुत्रों ने क्या किया जब वे युद्ध के लिए उत्सुक होकर कुरुक्षेत्र के पवित्र मैदान में एकत्र हुए?',
+          sanskrit_text:
+            'धृतराष्ट्र उवाच | धर्मक्षेत्रे कुरुक्षेत्रे समवेता युयुत्सवः | मामकाः पाण्डवाश्चैव किमकुर्वत सञ्जय ||',
+          english_translation:
+            'Dhritarashtra said: O Sanjaya, what did my sons and the sons of Pandu do when they had assembled together, eager for battle, on the holy plain of Kurukshetra?',
+          hindi_translation:
+            'धृतराष्ट्र ने कहा: हे संजय, मेरे पुत्रों और पांडु के पुत्रों ने क्या किया जब वे युद्ध के लिए उत्सुक होकर कुरुक्षेत्र के पवित्र मैदान में एकत्र हुए?',
           difficulty_level: 'beginner',
           created_at: new Date().toISOString(),
         },
@@ -912,9 +972,12 @@ class ApiService {
           id: '1-2',
           chapter_id: 'mock-chapter-1',
           verse_number: 2,
-          sanskrit_text: 'सञ्जय उवाच | दृष्ट्वा तु पाण्डवानीकं व्यूढं दुर्योधनस्तदा | आचार्यमुपसङ्गम्य राजा वचनमब्रवीत् ||',
-          english_translation: 'Sanjaya said: Having seen the army of the Pandavas drawn up in battle array, King Duryodhana then approached his teacher (Drona) and spoke these words.',
-          hindi_translation: 'संजय ने कहा: पांडवों की सेना को युद्ध के लिए तैयार देखकर, राजा दुर्योधन ने अपने गुरु (द्रोण) के पास जाकर ये शब्द कहे।',
+          sanskrit_text:
+            'सञ्जय उवाच | दृष्ट्वा तु पाण्डवानीकं व्यूढं दुर्योधनस्तदा | आचार्यमुपसङ्गम्य राजा वचनमब्रवीत् ||',
+          english_translation:
+            'Sanjaya said: Having seen the army of the Pandavas drawn up in battle array, King Duryodhana then approached his teacher (Drona) and spoke these words.',
+          hindi_translation:
+            'संजय ने कहा: पांडवों की सेना को युद्ध के लिए तैयार देखकर, राजा दुर्योधन ने अपने गुरु (द्रोण) के पास जाकर ये शब्द कहे।',
           difficulty_level: 'beginner',
           created_at: new Date().toISOString(),
         },
@@ -924,9 +987,12 @@ class ApiService {
           id: '2-47',
           chapter_id: 'mock-chapter-2',
           verse_number: 47,
-          sanskrit_text: 'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन। मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥',
-          english_translation: 'You have the right to work only, but never to its fruits. Let not the fruits of action be your motive, nor let your attachment be to inaction.',
-          hindi_translation: 'तुम्हारा कर्म करने में ही अधिकार है, फल में कभी नहीं। कर्म के फल का हेतु मत बनो और कर्म न करने में भी आसक्ति मत रखो।',
+          sanskrit_text:
+            'कर्मण्येवाधिकारस्ते मा फलेषु कदाचन। मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि॥',
+          english_translation:
+            'You have the right to work only, but never to its fruits. Let not the fruits of action be your motive, nor let your attachment be to inaction.',
+          hindi_translation:
+            'तुम्हारा कर्म करने में ही अधिकार है, फल में कभी नहीं। कर्म के फल का हेतु मत बनो और कर्म न करने में भी आसक्ति मत रखो।',
           difficulty_level: 'intermediate',
           created_at: new Date().toISOString(),
         },
@@ -946,9 +1012,12 @@ class ApiService {
           id: '3-1',
           chapter_id: 'mock-chapter-3',
           verse_number: 1,
-          sanskrit_text: 'अर्जुन उवाच | ज्यायसी चेत्कर्मणस्ते मता बुद्धिर्जनार्दन | तत्किं कर्मणि घोरे मां नियोजयसि केशव ||',
-          english_translation: 'Arjuna said: O Janardana, if You consider that knowledge is superior to action, why do You urge me to this terrible action, O Kesava?',
-          hindi_translation: 'अर्जुन ने कहा: हे जनार्दन, यदि आप ज्ञान को कर्म से श्रेष्ठ मानते हैं, तो हे केशव, आप मुझे इस भयंकर कर्म में क्यों प्रेरित कर रहे हैं?',
+          sanskrit_text:
+            'अर्जुन उवाच | ज्यायसी चेत्कर्मणस्ते मता बुद्धिर्जनार्दन | तत्किं कर्मणि घोरे मां नियोजयसि केशव ||',
+          english_translation:
+            'Arjuna said: O Janardana, if You consider that knowledge is superior to action, why do You urge me to this terrible action, O Kesava?',
+          hindi_translation:
+            'अर्जुन ने कहा: हे जनार्दन, यदि आप ज्ञान को कर्म से श्रेष्ठ मानते हैं, तो हे केशव, आप मुझे इस भयंकर कर्म में क्यों प्रेरित कर रहे हैं?',
           difficulty_level: 'intermediate',
           created_at: new Date().toISOString(),
         },

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Chapter, ChapterWithProgress, ProgressSummary } from '../types';
+import { ChapterWithProgress, ProgressSummary } from '../types';
 import { apiService } from '../utils/api';
 import { performanceMonitor } from '../utils/performanceMonitor';
 
@@ -21,7 +21,7 @@ interface LibraryStore {
   error: string | null;
   searchQuery: string;
   selectedFilter: string;
-  
+
   // Actions
   fetchChapters: (forceRefresh?: boolean) => Promise<void>;
   refreshChapters: () => Promise<void>;
@@ -80,7 +80,7 @@ export const useLibraryStore = create<LibraryStore>()(
       // Fetch chapters with caching
       fetchChapters: async (forceRefresh = false) => {
         const { cache, isCacheValid } = get();
-        
+
         // Return cached data if valid and not forcing refresh
         if (!forceRefresh && cache.chapters.length > 0 && isCacheValid()) {
           console.log('Using cached chapters data');
@@ -95,19 +95,19 @@ export const useLibraryStore = create<LibraryStore>()(
         try {
           // Fetch chapters with progress from API
           const chaptersWithProgress = await apiService.getChaptersWithProgress();
-          
+
           if (chaptersWithProgress && chaptersWithProgress.length > 0) {
             // Get user progress for favorites and other data
             const userProgress = await apiService.getUserProgress();
-            
+
             // Add favorite status to chapters and ensure completedVerses is always a number
-            const chaptersWithFavorites = chaptersWithProgress.map(chapter => ({
+            const chaptersWithFavorites = chaptersWithProgress.map((chapter) => ({
               ...chapter,
               completedVerses: chapter.completedVerses || 0,
               totalProgress: chapter.totalProgress || 0,
               isFavorite: userProgress.favoriteVerses.includes(chapter.id),
             }));
-            
+
             // Update cache
             set({
               cache: {
@@ -125,7 +125,7 @@ export const useLibraryStore = create<LibraryStore>()(
                 ...get().cache,
                 searchCache: new Map(),
                 filterCache: new Map(),
-              }
+              },
             });
           } else {
             set({
@@ -135,9 +135,9 @@ export const useLibraryStore = create<LibraryStore>()(
           }
         } catch (error) {
           console.error('Error fetching chapters:', error);
-          set({ 
+          set({
             error: 'Failed to load chapters. Please try again.',
-            isLoading: false 
+            isLoading: false,
           });
         }
       },
@@ -156,18 +156,18 @@ export const useLibraryStore = create<LibraryStore>()(
           cache: {
             ...cache,
             userProgress: { ...cache.userProgress, ...progress },
-          }
+          },
         });
       },
 
       // Mark chapter as read (optimistic update)
       markChapterAsRead: (chapterId, verseId) => {
         const { cache } = get();
-        const updatedChapters = cache.chapters.map(chapter => {
+        const updatedChapters = cache.chapters.map((chapter) => {
           if (chapter.id === chapterId) {
             return {
               ...chapter,
-              completedVerses: chapter.completedVerses + 1,
+              completedVerses: (chapter.completedVerses || 0) + 1,
             };
           }
           return chapter;
@@ -182,38 +182,13 @@ export const useLibraryStore = create<LibraryStore>()(
               completedVerses: [...cache.userProgress.completedVerses, verseId],
               totalVerses: cache.userProgress.totalVerses + 1,
             },
-          }
+          },
         });
       },
 
-      // Toggle chapter favorite
+      // Toggle chapter favorite (placeholder - chapters don't have favorites yet)
       toggleChapterFavorite: (chapterId) => {
-        const { cache } = get();
-        const updatedChapters = cache.chapters.map(chapter => {
-          if (chapter.id === chapterId) {
-            return {
-              ...chapter,
-              isFavorite: !chapter.isFavorite,
-            };
-          }
-          return chapter;
-        });
-
-        const isFavorite = cache.chapters.find(c => c.id === chapterId)?.isFavorite;
-        const updatedFavorites = isFavorite
-          ? cache.userProgress.favoriteVerses.filter(id => id !== chapterId)
-          : [...cache.userProgress.favoriteVerses, chapterId];
-
-        set({
-          cache: {
-            ...cache,
-            chapters: updatedChapters,
-            userProgress: {
-              ...cache.userProgress,
-              favoriteVerses: updatedFavorites,
-            },
-          }
-        });
+        console.log('Chapter favorite toggle not implemented yet');
       },
 
       // Set search query
@@ -232,7 +207,7 @@ export const useLibraryStore = create<LibraryStore>()(
           cache: {
             ...initialCache,
             lastFetched: 0,
-          }
+          },
         });
       },
 
@@ -243,10 +218,11 @@ export const useLibraryStore = create<LibraryStore>()(
 
         // Apply search filter
         if (searchQuery.trim()) {
-          filtered = filtered.filter(chapter =>
-            chapter.title_english.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (chapter.theme?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-            chapter.title_sanskrit.toLowerCase().includes(searchQuery.toLowerCase())
+          filtered = filtered.filter(
+            (chapter) =>
+              chapter.title_english.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              (chapter.theme?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+              chapter.title_sanskrit.toLowerCase().includes(searchQuery.toLowerCase())
           );
           performanceMonitor.recordSearchQuery();
         }
@@ -254,17 +230,20 @@ export const useLibraryStore = create<LibraryStore>()(
         // Apply category filter
         switch (selectedFilter) {
           case 'in-progress':
-            filtered = filtered.filter(chapter =>
-              chapter.completedVerses > 0 && chapter.completedVerses < (chapter.verse_count || 0)
+            filtered = filtered.filter(
+              (chapter) =>
+                (chapter.completedVerses || 0) > 0 &&
+                (chapter.completedVerses || 0) < (chapter.verse_count || 0)
             );
             break;
           case 'completed':
-            filtered = filtered.filter(chapter =>
-              chapter.completedVerses === (chapter.verse_count || 0)
+            filtered = filtered.filter(
+              (chapter) => (chapter.completedVerses || 0) === (chapter.verse_count || 0)
             );
             break;
           case 'favorites':
-            filtered = filtered.filter(chapter => chapter.isFavorite);
+            // Favorites filter not implemented for chapters yet
+            filtered = [];
             break;
           default:
             // 'all' - no additional filtering
@@ -289,72 +268,72 @@ export const useLibraryStore = create<LibraryStore>()(
       setCachedSearchResults: (query, results) => {
         const { cache } = get();
         const newSearchCache = new Map(cache.searchCache);
-        
-                  // Remove oldest entries if cache is full
-          if (newSearchCache.size >= SEARCH_CACHE_SIZE) {
-            const firstKey = newSearchCache.keys().next().value;
-            if (firstKey) {
-              newSearchCache.delete(firstKey);
-            }
+
+        // Remove oldest entries if cache is full
+        if (newSearchCache.size >= SEARCH_CACHE_SIZE) {
+          const firstKey = newSearchCache.keys().next().value;
+          if (firstKey) {
+            newSearchCache.delete(firstKey);
           }
-        
+        }
+
         newSearchCache.set(query, results);
-        
+
         set({
           cache: {
             ...cache,
             searchCache: newSearchCache,
-          }
+          },
         });
       },
 
-              setCachedFilterResults: (filter, results) => {
-          const { cache } = get();
-          const newFilterCache = new Map(cache.filterCache);
-          
-          // Remove oldest entries if cache is full
-          if (newFilterCache.size >= FILTER_CACHE_SIZE) {
-            const firstKey = newFilterCache.keys().next().value;
-            if (firstKey) {
-              newFilterCache.delete(firstKey);
-            }
-          }
-          
-          newFilterCache.set(filter, results);
-          
-          set({
-            cache: {
-              ...cache,
-              filterCache: newFilterCache,
-            }
-          });
-        },
-
-              syncWithVerseStore: (completedVerses: string[]) => {
+      setCachedFilterResults: (filter, results) => {
         const { cache } = get();
-        
+        const newFilterCache = new Map(cache.filterCache);
+
+        // Remove oldest entries if cache is full
+        if (newFilterCache.size >= FILTER_CACHE_SIZE) {
+          const firstKey = newFilterCache.keys().next().value;
+          if (firstKey) {
+            newFilterCache.delete(firstKey);
+          }
+        }
+
+        newFilterCache.set(filter, results);
+
+        set({
+          cache: {
+            ...cache,
+            filterCache: newFilterCache,
+          },
+        });
+      },
+
+      syncWithVerseStore: (completedVerses: string[]) => {
+        const { cache } = get();
+
         // Update user progress with completed verses
         const updatedProgress = {
           ...cache.userProgress,
           completedVerses,
         };
-        
+
         // For now, we'll use a simplified approach where we assume
         // the completedVerses array is already filtered for the current chapter
         // In a real implementation, you'd need to fetch verse data to map verse IDs to chapters
-        const updatedChapters = cache.chapters.map(chapter => {
+        const updatedChapters = cache.chapters.map((chapter) => {
           // Since we don't have verse-to-chapter mapping here,
           // we'll keep the existing completedVerses count
           // The actual count will be updated when chapters are fetched from the server
           return chapter;
         });
-        
+
         set({
           cache: {
             ...cache,
             userProgress: updatedProgress,
             chapters: updatedChapters,
-          }
+          },
         });
       },
     }),
@@ -378,4 +357,4 @@ export const useLibraryStore = create<LibraryStore>()(
       },
     }
   )
-); 
+);

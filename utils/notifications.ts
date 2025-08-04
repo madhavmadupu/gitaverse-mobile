@@ -9,6 +9,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -94,11 +96,12 @@ class NotificationService {
       await Notifications.scheduleNotificationAsync({
         content: {
           title: '🕉️ Your Daily Gita Verse',
-          body: 'Take a moment to reflect on today\'s spiritual wisdom',
+          body: "Take a moment to reflect on today's spiritual wisdom",
           sound: settings.soundEnabled ? 'temple-bell.wav' : undefined,
           data: { type: 'daily-verse' },
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
           hour,
           minute,
           repeats: true,
@@ -141,7 +144,10 @@ class NotificationService {
           body: 'This is a test notification from Gitaverse',
           sound: 'temple-bell.wav',
         },
-        trigger: { seconds: 2 },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 2,
+        },
       });
     } catch (error) {
       console.error('Error sending test notification:', error);
@@ -156,7 +162,10 @@ class NotificationService {
           body: `Great job! You've completed verse ${verseNumber}. Keep up the spiritual practice!`,
           sound: 'temple-bell.wav',
         },
-        trigger: { seconds: 1 },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 1,
+        },
       });
     } catch (error) {
       console.error('Error sending completion notification:', error);
@@ -171,18 +180,24 @@ class NotificationService {
           body: `Amazing! You've maintained a ${streakCount}-day streak. Your dedication is inspiring!`,
           sound: 'temple-bell.wav',
         },
-        trigger: { seconds: 1 },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: 1,
+        },
       });
     } catch (error) {
       console.error('Error sending streak notification:', error);
     }
   }
 
-  async scheduleDailyVerseNotification(date: Date, options: {
-    title: string;
-    body: string;
-    data?: any;
-  }): Promise<void> {
+  async scheduleDailyVerseNotification(
+    date: Date,
+    options: {
+      title: string;
+      body: string;
+      data?: any;
+    }
+  ): Promise<void> {
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -208,13 +223,13 @@ class NotificationService {
     try {
       const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
       const dailyVerseNotifications = scheduledNotifications.filter(
-        notification => notification.content.data?.screen === 'today'
+        (notification) => notification.content.data?.screen === 'today'
       );
-      
+
       for (const notification of dailyVerseNotifications) {
         await Notifications.cancelScheduledNotificationAsync(notification.identifier);
       }
-      
+
       console.log('Daily verse notifications cancelled');
     } catch (error) {
       console.error('Error cancelling daily verse notifications:', error);
@@ -222,4 +237,4 @@ class NotificationService {
   }
 }
 
-export const notificationService = NotificationService.getInstance(); 
+export const notificationService = NotificationService.getInstance();

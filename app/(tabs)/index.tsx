@@ -46,7 +46,7 @@ export default function TodayScreen() {
     try {
       // First sync progress from server to get latest data
       await syncProgressFromServer();
-      
+
       // Get dynamic verse based on user's current progress
       const verse = await apiService.getDynamicTodayVerse(userProgress.currentStreak);
       setTodayVerse(verse);
@@ -91,10 +91,10 @@ export default function TodayScreen() {
     const initializeScreen = async () => {
       // Load completed verses first
       await loadCompletedVerses();
-      
+
       // Sync progress from server
       await syncProgressFromServer();
-      
+
       // Fetch today's verse
       await fetchTodayVerse();
     };
@@ -216,6 +216,12 @@ export default function TodayScreen() {
     }
   };
 
+  const handleContinue = () => {
+    hapticsService.buttonPress();
+    // Navigate to library where user can continue from where they left off
+    router.push('/(tabs)/library');
+  };
+
   const getStreakMessage = () => {
     if (userProgress.currentStreak === 0) return "Start your journey today!";
     if (userProgress.currentStreak === 1) return "Great start! Keep going!";
@@ -321,7 +327,7 @@ export default function TodayScreen() {
               </View>
             )}
           </View>
-          
+
           {/* Milestone Message */}
           {getMilestoneMessage() && (
             <View className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
@@ -351,14 +357,16 @@ export default function TodayScreen() {
                 </Text>
               )}
             </View>
-            <TouchableOpacity
-              onPress={() => router.push('/(tabs)/progress')}
-              className="bg-orange-500 px-4 py-2 rounded-full"
-            >
-              <Text className="text-white font-semibold">View Progress</Text>
-            </TouchableOpacity>
+            <View className="flex-row space-x-2">
+              <TouchableOpacity
+                onPress={() => router.push('/(tabs)/progress')}
+                className="bg-orange-500 px-4 py-2 rounded-full"
+              >
+                <Text className="text-white font-semibold">Progress</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          
+
           {/* Dynamic Progress Bar */}
           <View className="mt-3">
             <View className="flex-row justify-between items-center mb-2">
@@ -368,18 +376,18 @@ export default function TodayScreen() {
               </Text>
             </View>
             <View className="w-full bg-gray-200 rounded-full h-2">
-              <View 
+              <View
                 className="bg-gradient-to-r from-orange-400 to-red-500 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${Math.min((userProgress.totalVerses / 700) * 100, 100)}%` }}
+                style={{ width: `${Math.min((userProgress.totalVerses / 200) * 100, 100)}%` }}
               />
             </View>
             <Text className="text-xs text-gray-400 mt-1">
               {userProgress.totalVerses} of ~700 verses
             </Text>
-            
+
             {/* Next Goal Indicator */}
             {getNextGoal() && (
-              <View className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <View className="my-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <View className="flex-row items-center justify-between">
                   <View className="flex-1">
                     <Text className="text-blue-800 font-semibold text-sm">
@@ -397,6 +405,13 @@ export default function TodayScreen() {
                 </View>
               </View>
             )}
+
+            <TouchableOpacity
+              onPress={handleContinue}
+              className="bg-orange-500 px-4 py-3 rounded-xl"
+            >
+              <Text className="text-white font-semibold text-center">Continue</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -416,7 +431,7 @@ export default function TodayScreen() {
         {/* Enhanced Verse Card */}
         {todayVerse && (
           <View className="mb-6">
-            <View className="bg-white rounded-3xl p-6 shadow-lg border border-orange-100">
+            <View className="border border-orange-100">
               <View className="flex-row items-center justify-between mb-4">
                 <View className="bg-orange-500 px-4 py-2 rounded-full">
                   <Text className="text-white font-bold text-sm">
@@ -483,8 +498,16 @@ export default function TodayScreen() {
           <Text className="text-lg font-bold text-gray-900 mb-4">Quick Actions</Text>
           <View className="flex-row justify-between">
             <TouchableOpacity
+              onPress={handleContinue}
+              className="bg-green-500 flex-1 mr-3 py-4 rounded-2xl items-center"
+            >
+              <Ionicons name="play" size={24} color="white" />
+              <Text className="text-white font-semibold mt-2">Continue</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
               onPress={() => router.push('/(tabs)/library')}
-              className="bg-orange-500 flex-1 mr-3 py-4 rounded-2xl items-center"
+              className="bg-orange-500 flex-1 mx-1.5 py-4 rounded-2xl items-center"
             >
               <Ionicons name="library" size={24} color="white" />
               <Text className="text-white font-semibold mt-2">Library</Text>

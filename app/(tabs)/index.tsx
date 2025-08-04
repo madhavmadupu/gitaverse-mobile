@@ -36,6 +36,7 @@ export default function TodayScreen() {
 
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showStreakAnimation, setShowStreakAnimation] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   // Enhanced verse fetching with streak-based selection
   const fetchTodayVerse = useCallback(async (forceRefresh = false) => {
@@ -43,7 +44,10 @@ export default function TodayScreen() {
 
     setLoading(true);
     try {
-      // Get dynamic verse based on user's streak and progress
+      // First sync progress from server to get latest data
+      await syncProgressFromServer();
+      
+      // Get dynamic verse based on user's current progress
       const verse = await apiService.getDynamicTodayVerse(userProgress.currentStreak);
       setTodayVerse(verse);
 
@@ -58,7 +62,7 @@ export default function TodayScreen() {
     } finally {
       setLoading(false);
     }
-  }, [todayVerse, userProgress.currentStreak, setTodayVerse, setLoading]);
+  }, [todayVerse, userProgress.currentStreak, setTodayVerse, setLoading, syncProgressFromServer]);
 
   // Schedule notification for next day
   const scheduleNextDayNotification = async () => {
@@ -104,8 +108,25 @@ export default function TodayScreen() {
       }
     });
 
-    return () => subscription?.remove();
-  }, [fetchTodayVerse, handleNotificationTap, loadCompletedVerses, syncProgressFromServer]);
+    // Set up periodic refresh for dynamic updates (every 5 minutes)
+    const refreshInterval = setInterval(async () => {
+      try {
+        await syncProgressFromServer();
+        // Only refresh verse if it's a new day or if user has made progress
+        const today = new Date().toISOString().split('T')[0];
+        if (userProgress.lastReadDate !== today) {
+          await fetchTodayVerse(true);
+        }
+      } catch (error) {
+        console.error('Error in periodic refresh:', error);
+      }
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => {
+      subscription?.remove();
+      clearInterval(refreshInterval);
+    };
+  }, [fetchTodayVerse, handleNotificationTap, loadCompletedVerses, syncProgressFromServer, userProgress.lastReadDate]);
 
   const handleMarkAsRead = async () => {
     if (todayVerse) {
@@ -114,6 +135,9 @@ export default function TodayScreen() {
 
         // Use the enhanced markAsRead from store (handles both Supabase and local state)
         await markAsRead(todayVerse.id, 300); // 5 minutes
+
+        // Update last updated timestamp
+        setLastUpdated(new Date());
 
         // Show streak animation
         setShowStreakAnimation(true);
@@ -181,8 +205,15 @@ export default function TodayScreen() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await fetchTodayVerse(true);
-    setIsRefreshing(false);
+    try {
+      await syncProgressFromServer();
+      await fetchTodayVerse(true);
+      setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Error refreshing:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const getStreakMessage = () => {
@@ -192,6 +223,30 @@ export default function TodayScreen() {
     if (userProgress.currentStreak < 30) return "Consistency is key!";
     if (userProgress.currentStreak < 100) return "You're on fire!";
     return "Legendary dedication!";
+  };
+
+  const getMilestoneMessage = () => {
+    const totalVerses = userProgress.totalVerses;
+    if (totalVerses === 0) return null;
+    if (totalVerses === 1) return "🎉 First verse completed!";
+    if (totalVerses === 10) return "🌟 10 verses milestone!";
+    if (totalVerses === 50) return "🔥 50 verses milestone!";
+    if (totalVerses === 100) return "💎 100 verses milestone!";
+    if (totalVerses === 200) return "👑 200 verses milestone!";
+    if (totalVerses === 500) return "🏆 500 verses milestone!";
+    if (totalVerses === 700) return "🎊 Bhagavad Gita completed!";
+    return null;
+  };
+
+  const getNextGoal = () => {
+    const totalVerses = userProgress.totalVerses;
+    if (totalVerses < 10) return { target: 10, message: "Complete 10 verses" };
+    if (totalVerses < 50) return { target: 50, message: "Reach 50 verses" };
+    if (totalVerses < 100) return { target: 100, message: "Reach 100 verses" };
+    if (totalVerses < 200) return { target: 200, message: "Reach 200 verses" };
+    if (totalVerses < 500) return { target: 500, message: "Reach 500 verses" };
+    if (totalVerses < 700) return { target: 700, message: "Complete Bhagavad Gita" };
+    return null;
   };
 
   const getStreakColor = () => {
@@ -255,6 +310,9 @@ export default function TodayScreen() {
                   Longest: {userProgress.longestStreak} days
                 </Text>
               )}
+              <Text className="text-xs text-gray-400 mt-2">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </Text>
             </View>
 
             {showStreakAnimation && (
@@ -263,11 +321,20 @@ export default function TodayScreen() {
               </View>
             )}
           </View>
+          
+          {/* Milestone Message */}
+          {getMilestoneMessage() && (
+            <View className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              <Text className="text-yellow-800 font-semibold text-center">
+                {getMilestoneMessage()}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Progress Summary */}
         <View className="bg-white rounded-2xl p-4 shadow-sm">
-          <View className="flex-row justify-between items-center">
+          <View className="flex-row justify-between items-center mb-3">
             <View className="flex-1">
               <Text className="text-lg font-semibold text-gray-900 mb-1">
                 Your Journey
@@ -275,6 +342,14 @@ export default function TodayScreen() {
               <Text className="text-gray-600">
                 {userProgress.totalVerses} verses completed
               </Text>
+              <Text className="text-sm text-gray-500">
+                {userProgress.totalTime > 0 ? `${Math.round(userProgress.totalTime / 60)} minutes spent` : 'Start your journey'}
+              </Text>
+              {userProgress.lastReadDate && (
+                <Text className="text-xs text-gray-400 mt-1">
+                  Last read: {new Date(userProgress.lastReadDate).toLocaleDateString()}
+                </Text>
+              )}
             </View>
             <TouchableOpacity
               onPress={() => router.push('/(tabs)/progress')}
@@ -282,6 +357,46 @@ export default function TodayScreen() {
             >
               <Text className="text-white font-semibold">View Progress</Text>
             </TouchableOpacity>
+          </View>
+          
+          {/* Dynamic Progress Bar */}
+          <View className="mt-3">
+            <View className="flex-row justify-between items-center mb-2">
+              <Text className="text-sm font-medium text-gray-700">Bhagavad Gita Progress</Text>
+              <Text className="text-sm text-gray-500">
+                {Math.round((userProgress.totalVerses / 700) * 100)}% Complete
+              </Text>
+            </View>
+            <View className="w-full bg-gray-200 rounded-full h-2">
+              <View 
+                className="bg-gradient-to-r from-orange-400 to-red-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${Math.min((userProgress.totalVerses / 700) * 100, 100)}%` }}
+              />
+            </View>
+            <Text className="text-xs text-gray-400 mt-1">
+              {userProgress.totalVerses} of ~700 verses
+            </Text>
+            
+            {/* Next Goal Indicator */}
+            {getNextGoal() && (
+              <View className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1">
+                    <Text className="text-blue-800 font-semibold text-sm">
+                      🎯 Next Goal: {getNextGoal()?.message}
+                    </Text>
+                    <Text className="text-blue-600 text-xs mt-1">
+                      {userProgress.totalVerses} / {getNextGoal()?.target} verses
+                    </Text>
+                  </View>
+                  <View className="bg-blue-100 px-2 py-1 rounded-full">
+                    <Text className="text-blue-600 font-bold text-xs">
+                      {Math.round((userProgress.totalVerses / (getNextGoal()?.target || 1)) * 100)}%
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -308,13 +423,19 @@ export default function TodayScreen() {
                     Chapter {todayVerse.chapter?.chapter_number} • Verse {todayVerse.verse_number}
                   </Text>
                 </View>
-                {hasReadToday && (
-                  <View className="bg-green-100 px-3 py-1 rounded-full">
-                    <Text className="text-green-600 font-semibold text-sm">
-                      ✓ Completed
-                    </Text>
+                <View className="flex-row items-center space-x-2">
+                  <View className="bg-blue-100 px-2 py-1 rounded-full flex-row items-center">
+                    <View className="w-2 h-2 bg-blue-500 rounded-full mr-1 animate-pulse" />
+                    <Text className="text-blue-600 font-semibold text-xs">LIVE</Text>
                   </View>
-                )}
+                  {hasReadToday && (
+                    <View className="bg-green-100 px-3 py-1 rounded-full">
+                      <Text className="text-green-600 font-semibold text-sm">
+                        ✓ Completed
+                      </Text>
+                    </View>
+                  )}
+                </View>
               </View>
 
               <VerseCard

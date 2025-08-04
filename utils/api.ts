@@ -137,109 +137,78 @@ class ApiService {
   // Get dynamic today's verse based on user streak
   async getDynamicTodayVerse(userStreak: number): Promise<VerseWithChapter> {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        console.log('User not authenticated, returning mock verse');
+        return this.getTodayVerse();
+      }
 
-      // Get user's completed verses to avoid repetition
-      const { data: userProgress } = await supabase
+      // Get user's completed verses
+      const { data: userProgressData } = await supabase
         .from('user_progress')
-        .select('completed_verses')
-        .single();
+        .select('verse_id')
+        .eq('user_id', userId);
 
-      const completedVerses = userProgress?.completed_verses || [];
-
-      // Calculate which verse to show based on streak (sequential progression)
-      // Start from Chapter 1, Verse 1 and continue sequentially
+      const completedVerses = userProgressData?.map(item => item.verse_id) || [];
       const totalVersesCompleted = completedVerses.length;
-      const targetVerseNumber = totalVersesCompleted + 1; // Next verse to show
 
-      // Calculate which chapter and verse this corresponds to
-      // Assuming average 50 verses per chapter (Bhagavad Gita has 18 chapters with varying verse counts)
-      const targetChapter = Math.ceil(targetVerseNumber / 50);
-      const targetVerseInChapter = ((targetVerseNumber - 1) % 50) + 1;
-
-      // Ensure we don't exceed the actual chapter limits
-      const maxChapter = 18; // Bhagavad Gita has 18 chapters
-      const actualTargetChapter = Math.min(targetChapter, maxChapter);
-
-      // Get the specific verse
-      const { data: verses, error } = await supabase
+      // Get all verses ordered by chapter and verse number for sequential progression
+      const { data: allVerses, error: allError } = await supabase
         .from('verses')
         .select('*')
-        .eq('chapter_number', actualTargetChapter)
-        .eq('verse_number', targetVerseInChapter)
-        .single();
+        .order('chapter_number', { ascending: true })
+        .order('verse_number', { ascending: true });
 
-      // If the specific verse doesn't exist, fall back to sequential search
-      if (error || !verses) {
-        console.log('Specific verse not found, falling back to sequential search');
-        
-        // Get all verses ordered by chapter and verse number
-        const { data: allVerses, error: allError } = await supabase
-          .from('verses')
-          .select('*')
-          .order('chapter_number')
-          .order('verse_number');
+      if (allError || !allVerses || allVerses.length === 0) {
+        console.log('No verses found, falling back to regular today verse');
+        return this.getTodayVerse();
+      }
 
-        if (allError || !allVerses || allVerses.length === 0) {
-          console.log('No verses found, falling back to regular today verse');
-          return this.getTodayVerse();
-        }
-
-        // Find the next uncompleted verse
-        const nextVerse = allVerses.find(verse => !completedVerses.includes(verse.id));
-        
-        if (!nextVerse) {
-          console.log('All verses completed, starting over from Chapter 1, Verse 1');
-          // If all verses are completed, start over from the beginning
-          const firstVerse = allVerses[0];
-          if (firstVerse) {
-            const { data: chapter } = await supabase
-              .from('chapters')
-              .select('*')
-              .eq('chapter_number', firstVerse.chapter_number)
-              .single();
-
-            return {
-              ...firstVerse,
-              chapter: chapter || this.getMockChapter(firstVerse.chapter_number),
-              isCompleted: false,
-              isFavorite: false,
-            } as VerseWithChapter;
-          }
-        } else {
+      // Find the next uncompleted verse (sequential progression)
+      const nextVerse = allVerses.find(verse => !completedVerses.includes(verse.id));
+      
+      if (!nextVerse) {
+        console.log('All verses completed, starting over from Chapter 1, Verse 1');
+        // If all verses are completed, start over from the beginning
+        const firstVerse = allVerses[0];
+        if (firstVerse) {
           const { data: chapter } = await supabase
             .from('chapters')
             .select('*')
-            .eq('chapter_number', nextVerse.chapter_number)
+            .eq('chapter_number', firstVerse.chapter_number)
             .single();
 
           return {
-            ...nextVerse,
-            chapter: chapter || this.getMockChapter(nextVerse.chapter_number),
+            ...firstVerse,
+            chapter: chapter || this.getMockChapter(firstVerse.chapter_number),
             isCompleted: false,
             isFavorite: false,
           } as VerseWithChapter;
         }
       }
 
-      if (error || !verses) {
-        console.log('No dynamic verse found, falling back to regular today verse');
-        return this.getTodayVerse();
-      }
+      // Get chapter information for the next verse
+      const { data: chapter } = await supabase
+        .from('chapters')
+        .select('*')
+        .eq('chapter_number', nextVerse.chapter_number)
+        .single();
 
-             // Get chapter information
-       const { data: chapter } = await supabase
-         .from('chapters')
-         .select('*')
-         .eq('chapter_number', verses.chapter_number)
-         .single();
+      // Get user's favorite verses for isFavorite status
+      const { data: userData } = await supabase
+        .from('user_progress')
+        .select('favorite_verses')
+        .eq('user_id', userId)
+        .single();
 
-       return {
-         ...verses,
-         chapter: chapter || this.getMockChapter(verses.chapter_number),
-         isCompleted: completedVerses.includes(verses.id),
-         isFavorite: false,
-       } as VerseWithChapter;
+      const favoriteVerses = userData?.favorite_verses || [];
+
+      return {
+        ...nextVerse,
+        chapter: chapter || this.getMockChapter(nextVerse.chapter_number),
+        isCompleted: false, // This is the next verse to read, so it's not completed yet
+        isFavorite: favoriteVerses.includes(nextVerse.id),
+      } as VerseWithChapter;
 
     } catch (error) {
       console.error('Error fetching dynamic today verse:', error);

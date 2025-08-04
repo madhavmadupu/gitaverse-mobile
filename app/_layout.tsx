@@ -2,12 +2,13 @@ import '../global.css';
 
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, AppState } from 'react-native';
 import { ThemeProvider } from '../contexts/ThemeContext';
 import { notificationService } from '../utils/notifications';
 import { hapticsService } from '../utils/haptics';
 import { useAuthStore } from '../store/authStore';
 import { useOnboardingStore } from '../store/onboardingStore';
+import * as Notifications from 'expo-notifications';
 
 export const unstable_settings = {
   // Ensure that reloading on `/modal` keeps a back button present.
@@ -70,6 +71,7 @@ function useProtectedRoute() {
 export default function RootLayout() {
   const { isLoading: authLoading, initializeAuth } = useAuthStore();
   const { isLoading: onboardingLoading } = useOnboardingStore();
+  const router = useRouter();
 
   // Use the route guard
   useProtectedRoute();
@@ -89,6 +91,47 @@ export default function RootLayout() {
     };
 
     initializeServices();
+
+    // Set up notification listeners
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      console.log('Notification received:', notification);
+    });
+
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      console.log('Notification response received:', response);
+      
+      // Handle notification tap to open Today screen
+      if (response.notification.request.content.data?.screen === 'today') {
+        // Navigate to Today screen
+        router.push('/(tabs)/' as any);
+      }
+    });
+
+    // Handle app state changes for notification scheduling
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        // App became active - schedule next day's notification
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(8, 0, 0, 0); // 8 AM
+
+        notificationService.scheduleDailyVerseNotification(tomorrow, {
+          title: "🌟 Your Daily Verse Awaits",
+          body: "Continue your spiritual journey with today's wisdom",
+          data: { screen: 'today' }
+        }).catch(error => {
+          console.error('Error scheduling notification:', error);
+        });
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      notificationListener?.remove();
+      responseListener?.remove();
+      appStateSubscription?.remove();
+    };
   }, []); // Remove initializeAuth from dependencies to avoid re-initialization
 
   // Add a timeout to prevent infinite loading

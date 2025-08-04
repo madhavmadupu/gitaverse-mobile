@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
 import { Alert } from 'react-native';
 import { hapticsService } from '../utils/haptics';
-import { ChapterWithProgress } from '../store/libraryStore';
+import { ChapterWithProgress } from '../types';
 
 interface ChapterListProps {
   chapters: ChapterWithProgress[];
@@ -42,7 +42,7 @@ const ChapterItem = memo(({
   onShareChapter: (chapter: ChapterWithProgress) => void;
 }) => {
   const progressPercentage = useMemo(() => {
-    return Math.round((chapter.completedVerses / (chapter.verse_count || 1)) * 100);
+    return Math.round(((chapter.completedVerses || 0) / (chapter.verse_count || 1)) * 100);
   }, [chapter.completedVerses, chapter.verse_count]);
 
   const progressColor = useMemo(() => {
@@ -99,7 +99,7 @@ const ChapterItem = memo(({
 
         <View className="bg-orange-100 px-3 py-1 rounded-full">
           <Text className="text-orange-600 font-semibold text-sm">
-            {chapter.completedVerses}/{chapter.verse_count || 0}
+            {chapter.completedVerses || 0}/{chapter.verse_count || 0}
           </Text>
         </View>
       </View>
@@ -131,7 +131,7 @@ const ChapterItem = memo(({
           onPress={handleContinueReading}
         >
           <Text className="text-white text-center font-semibold">
-            {chapter.completedVerses === 0 ? 'Start Reading' : 'Continue Reading'}
+            {(chapter.completedVerses || 0) === 0 ? 'Start Reading' : 'Continue Reading'}
           </Text>
         </TouchableOpacity>
 
@@ -259,7 +259,11 @@ const ChapterList = memo(({
   }, [onViewAllChapters]);
 
   const handleRetry = useCallback(() => {
-    onRetry?.() || onRefresh();
+    if (onRetry) {
+      onRetry();
+    } else {
+      onRefresh();
+    }
   }, [onRetry, onRefresh]);
 
   if (chapters.length === 0) {

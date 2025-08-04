@@ -7,6 +7,7 @@ import { apiService } from '../utils/api';
 import { hapticsService } from '../utils/haptics';
 import { Chapter, VerseWithChapter, Verse } from '../types';
 import VerseCard from '../components/VerseCard';
+import { useVerseStore } from '../store/verseStore';
 
 type ModalType = 'chapter' | 'verse' | 'search';
 
@@ -17,6 +18,9 @@ export default function Modal() {
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [verses, setVerses] = useState<VerseWithChapter[]>([]);
   const [selectedVerse, setSelectedVerse] = useState<VerseWithChapter | null>(null);
+  
+  // Get verse store actions
+  const { markAsRead, userProgress } = useVerseStore();
 
   useEffect(() => {
     const loadModalContent = async () => {
@@ -95,9 +99,7 @@ export default function Modal() {
 
   const loadVersesWithProgress = async (verses: Verse[], chapterData: Chapter): Promise<VerseWithChapter[]> => {
     try {
-      // Get user progress for all verses
-      const userProgress = await apiService.getUserProgress();
-      
+      // Use the store's user progress instead of fetching from API
       return verses.map(verse => ({
         ...verse,
         chapter: chapterData,
@@ -149,8 +151,8 @@ export default function Modal() {
           const verseWithChapter: VerseWithChapter = {
             ...verse,
             chapter: chapterData || undefined,
-            isCompleted: false,
-            isFavorite: false,
+            isCompleted: userProgress.completedVerses.includes(verseId),
+            isFavorite: userProgress.favoriteVerses.includes(verseId),
           };
           setSelectedVerse(verseWithChapter);
         }
@@ -176,7 +178,8 @@ export default function Modal() {
 
   const handleMarkAsRead = async (verseId: string) => {
     try {
-      await apiService.markVerseAsRead(verseId, 60); // 60 seconds
+      // Use the enhanced markAsRead from store (handles both Supabase and local state)
+      await markAsRead(verseId, 60); // 60 seconds
       hapticsService.success();
 
       // Update the verse in the list

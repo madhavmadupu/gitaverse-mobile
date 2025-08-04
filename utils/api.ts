@@ -134,6 +134,120 @@ class ApiService {
     }
   }
 
+  // Get dynamic today's verse based on user streak
+  async getDynamicTodayVerse(userStreak: number): Promise<VerseWithChapter> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get user's completed verses to avoid repetition
+      const { data: userProgress } = await supabase
+        .from('user_progress')
+        .select('completed_verses')
+        .single();
+
+      const completedVerses = userProgress?.completed_verses || [];
+
+      // Calculate which verse to show based on streak (sequential progression)
+      // Start from Chapter 1, Verse 1 and continue sequentially
+      const totalVersesCompleted = completedVerses.length;
+      const targetVerseNumber = totalVersesCompleted + 1; // Next verse to show
+
+      // Calculate which chapter and verse this corresponds to
+      // Assuming average 50 verses per chapter (Bhagavad Gita has 18 chapters with varying verse counts)
+      const targetChapter = Math.ceil(targetVerseNumber / 50);
+      const targetVerseInChapter = ((targetVerseNumber - 1) % 50) + 1;
+
+      // Ensure we don't exceed the actual chapter limits
+      const maxChapter = 18; // Bhagavad Gita has 18 chapters
+      const actualTargetChapter = Math.min(targetChapter, maxChapter);
+
+      // Get the specific verse
+      const { data: verses, error } = await supabase
+        .from('verses')
+        .select('*')
+        .eq('chapter_number', actualTargetChapter)
+        .eq('verse_number', targetVerseInChapter)
+        .single();
+
+      // If the specific verse doesn't exist, fall back to sequential search
+      if (error || !verses) {
+        console.log('Specific verse not found, falling back to sequential search');
+        
+        // Get all verses ordered by chapter and verse number
+        const { data: allVerses, error: allError } = await supabase
+          .from('verses')
+          .select('*')
+          .order('chapter_number')
+          .order('verse_number');
+
+        if (allError || !allVerses || allVerses.length === 0) {
+          console.log('No verses found, falling back to regular today verse');
+          return this.getTodayVerse();
+        }
+
+        // Find the next uncompleted verse
+        const nextVerse = allVerses.find(verse => !completedVerses.includes(verse.id));
+        
+        if (!nextVerse) {
+          console.log('All verses completed, starting over from Chapter 1, Verse 1');
+          // If all verses are completed, start over from the beginning
+          const firstVerse = allVerses[0];
+          if (firstVerse) {
+            const { data: chapter } = await supabase
+              .from('chapters')
+              .select('*')
+              .eq('chapter_number', firstVerse.chapter_number)
+              .single();
+
+            return {
+              ...firstVerse,
+              chapter: chapter || this.getMockChapter(firstVerse.chapter_number),
+              isCompleted: false,
+              isFavorite: false,
+            } as VerseWithChapter;
+          }
+        } else {
+          const { data: chapter } = await supabase
+            .from('chapters')
+            .select('*')
+            .eq('chapter_number', nextVerse.chapter_number)
+            .single();
+
+          return {
+            ...nextVerse,
+            chapter: chapter || this.getMockChapter(nextVerse.chapter_number),
+            isCompleted: false,
+            isFavorite: false,
+          } as VerseWithChapter;
+        }
+      }
+
+      if (error || !verses) {
+        console.log('No dynamic verse found, falling back to regular today verse');
+        return this.getTodayVerse();
+      }
+
+             // Get chapter information
+       const { data: chapter } = await supabase
+         .from('chapters')
+         .select('*')
+         .eq('chapter_number', verses.chapter_number)
+         .single();
+
+       return {
+         ...verses,
+         chapter: chapter || this.getMockChapter(verses.chapter_number),
+         isCompleted: completedVerses.includes(verses.id),
+         isFavorite: false,
+       } as VerseWithChapter;
+
+    } catch (error) {
+      console.error('Error fetching dynamic today verse:', error);
+      // Fallback to regular today verse
+      return this.getTodayVerse();
+    }
+  }
+
   // Get verse by ID
   async getVerse(verseId: string): Promise<Verse> {
     try {
@@ -173,6 +287,89 @@ class ApiService {
     } catch (error) {
       console.error('Error fetching chapters:', error);
       return this.getMockChapters();
+    }
+  }
+
+  // Get chapters with progress data
+  async getChaptersWithProgress(): Promise<ChapterWithProgress[]> {
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        console.log('User not authenticated, returning chapters without progress');
+        const chapters = await this.getChapters();
+        return chapters.map(chapter => ({
+          ...chapter,
+          completedVerses: 0,
+          totalProgress: 0,
+        }));
+      }
+
+      // Get all chapters
+      const chapters = await this.getChapters();
+      
+      // Get user's completed verses
+      const { data: userProgress, error: progressError } = await supabase
+        .from('user_progress')
+        .select('verse_id')
+        .eq('user_id', userId);
+
+      if (progressError) {
+        console.error('Error fetching user progress:', progressError);
+        return chapters.map(chapter => ({
+          ...chapter,
+          completedVerses: 0,
+          totalProgress: 0,
+        }));
+      }
+
+      const completedVerseIds = userProgress?.map(item => item.verse_id) || [];
+
+      // Get all verses to map verse IDs to chapters
+      const { data: allVerses, error: versesError } = await supabase
+        .from('verses')
+        .select('id, chapter_id');
+
+      if (versesError) {
+        console.error('Error fetching verses for progress calculation:', versesError);
+        return chapters.map(chapter => ({
+          ...chapter,
+          completedVerses: 0,
+          totalProgress: 0,
+        }));
+      }
+
+      // Create a map of verse ID to chapter ID
+      const verseToChapterMap = new Map<string, string>();
+      allVerses?.forEach(verse => {
+        verseToChapterMap.set(verse.id, verse.chapter_id);
+      });
+
+      // Calculate completion for each chapter
+      const chaptersWithProgress = chapters.map(chapter => {
+        const chapterCompletedVerses = completedVerseIds.filter(verseId => 
+          verseToChapterMap.get(verseId) === chapter.id
+        );
+        
+        const completedCount = chapterCompletedVerses.length;
+        const totalVerses = chapter.verse_count || 0;
+        const progressPercentage = totalVerses > 0 ? (completedCount / totalVerses) * 100 : 0;
+
+        return {
+          ...chapter,
+          completedVerses: completedCount || 0,
+          totalProgress: progressPercentage || 0,
+        };
+      });
+
+      return chaptersWithProgress;
+    } catch (error) {
+      console.error('Error fetching chapters with progress:', error);
+      const chapters = await this.getChapters();
+      return chapters.map(chapter => ({
+        ...chapter,
+        completedVerses: 0,
+        totalProgress: 0,
+      }));
     }
   }
 
@@ -226,11 +423,30 @@ class ApiService {
         return; // Skip database call for mock data
       }
 
-      const { error } = await supabase.from('user_progress').upsert({
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // First, check if verse is already marked as read
+      const { data: existingProgress } = await supabase
+        .from('user_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('verse_id', verseId)
+        .single();
+
+      if (existingProgress) {
+        console.log('Verse already marked as read:', verseId);
+        return; // Already completed
+      }
+
+      // Mark verse as read
+      const { error } = await supabase.from('user_progress').insert({
         verse_id: verseId,
         time_spent_seconds: timeSpent,
         completed_at: new Date().toISOString(),
-        user_id: (await supabase.auth.getUser()).data.user?.id,
+        user_id: userId,
       });
 
       if (error) {
@@ -242,6 +458,31 @@ class ApiService {
     } catch (error) {
       console.error('Error marking verse as read:', error);
       throw error;
+    }
+  }
+
+  // Get completed verses for a user
+  async getCompletedVerses(): Promise<string[]> {
+    try {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) {
+        return [];
+      }
+
+      const { data, error } = await supabase
+        .from('user_progress')
+        .select('verse_id')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error fetching completed verses:', error);
+        return [];
+      }
+
+      return data?.map(item => item.verse_id) || [];
+    } catch (error) {
+      console.error('Error fetching completed verses:', error);
+      return [];
     }
   }
 
@@ -265,36 +506,66 @@ class ApiService {
       const { data, error } = await supabase
         .from('user_progress')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('completed_at', { ascending: false });
 
       if (error) throw error;
 
       // Calculate progress from data
       const totalVerses = data?.length || 0;
-      const lastReadDate =
-        data?.length > 0
-          ? new Date(Math.max(...data.map((d) => new Date(d.completed_at).getTime()))).toISOString().split('T')[0]
-          : undefined;
+      const completedVerses = data?.map(item => item.verse_id) || [];
+      
+      // Calculate total time spent
+      const totalTime = data?.reduce((sum, item) => sum + (item.time_spent_seconds || 0), 0) || 0;
+      
+      // Get last read date
+      const lastReadDate = data?.length > 0
+        ? new Date(data[0].completed_at).toISOString().split('T')[0] as DateString
+        : undefined;
 
-      // Calculate streak (simplified)
+      // Calculate streak properly
       let currentStreak = 0;
-      if (lastReadDate) {
+      let longestStreak = 0;
+      
+      if (data && data.length > 0) {
         const today = new Date();
-        const lastReadDateObj = new Date(lastReadDate);
-        const diffTime = Math.abs(today.getTime() - lastReadDateObj.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        currentStreak = diffDays <= 1 ? 1 : 0;
+        const sortedDates = data
+          .map(item => new Date(item.completed_at).toISOString().split('T')[0])
+          .sort()
+          .reverse(); // Most recent first
+
+        // Calculate current streak
+        let streakCount = 0;
+        let currentDate = today;
+        
+        for (const readDate of sortedDates) {
+          const readDateObj = new Date(readDate);
+          const diffTime = currentDate.getTime() - readDateObj.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          if (diffDays <= 1) {
+            streakCount++;
+            currentDate = readDateObj;
+          } else {
+            break;
+          }
+        }
+        
+        currentStreak = streakCount;
+        
+        // Calculate longest streak (simplified - could be enhanced)
+        longestStreak = Math.max(currentStreak, totalVerses);
       }
 
       return {
         currentStreak,
-        longestStreak: currentStreak, // Simplified
+        longestStreak,
         totalVerses,
         totalChapters: Math.floor(totalVerses / 10), // Simplified
-        totalTime: totalVerses * 5, // 5 minutes per verse
-        lastReadDate: lastReadDate || undefined,
-        completedVerses: [],
-        favoriteVerses: [],
+        totalTime,
+        lastReadDate,
+        completedVerses,
+        favoriteVerses: [], // TODO: Implement favorites
       };
     } catch (error) {
       console.error('Error fetching user progress:', error);
@@ -581,19 +852,33 @@ class ApiService {
     };
   }
 
-  getMockChapters(): Chapter[] {
-    return [
-      {
-        id: 'mock-chapter-1',
-        chapter_number: 1,
-        title_sanskrit: 'अर्जुन विषाद योग',
-        title_english: 'Arjuna Vishada Yoga',
-        title_hindi: 'अर्जुन विषाद योग',
-        description: "The Yoga of Arjuna's Dejection",
-        verse_count: 47,
-        theme: "The Yoga of Arjuna's Dejection",
-        created_at: new Date().toISOString(),
-      },
+     getMockChapter(chapterNumber: number): Chapter {
+     return {
+       id: `mock-chapter-${chapterNumber}`,
+       chapter_number: chapterNumber,
+       title_sanskrit: `अध्याय ${chapterNumber}`,
+       title_english: `Chapter ${chapterNumber}`,
+       title_hindi: `अध्याय ${chapterNumber}`,
+       description: `Chapter ${chapterNumber} of the Bhagavad Gita`,
+       verse_count: 50,
+       theme: 'Spiritual Wisdom',
+       created_at: new Date().toISOString(),
+     };
+   }
+
+   getMockChapters(): Chapter[] {
+     return [
+       {
+         id: 'mock-chapter-1',
+         chapter_number: 1,
+         title_sanskrit: 'अर्जुन विषाद योग',
+         title_english: 'Arjuna Vishada Yoga',
+         title_hindi: 'अर्जुन विषाद योग',
+         description: "The Yoga of Arjuna's Dejection",
+         verse_count: 47,
+         theme: "The Yoga of Arjuna's Dejection",
+         created_at: new Date().toISOString(),
+       },
       {
         id: 'mock-chapter-2',
         chapter_number: 2,

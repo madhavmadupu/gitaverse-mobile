@@ -177,6 +177,49 @@ class NotificationService {
       console.error('Error sending streak notification:', error);
     }
   }
+
+  async scheduleDailyVerseNotification(date: Date, options: {
+    title: string;
+    body: string;
+    data?: any;
+  }): Promise<void> {
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: options.title,
+          body: options.body,
+          sound: 'temple-bell.wav',
+          data: options.data || {},
+        },
+        trigger: {
+          date,
+          channelId: 'daily-verse',
+        },
+      });
+
+      console.log('Daily verse notification scheduled for', date);
+    } catch (error) {
+      console.error('Error scheduling daily verse notification:', error);
+      throw error;
+    }
+  }
+
+  async cancelDailyVerseNotifications(): Promise<void> {
+    try {
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      const dailyVerseNotifications = scheduledNotifications.filter(
+        notification => notification.content.data?.screen === 'today'
+      );
+      
+      for (const notification of dailyVerseNotifications) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      }
+      
+      console.log('Daily verse notifications cancelled');
+    } catch (error) {
+      console.error('Error cancelling daily verse notifications:', error);
+    }
+  }
 }
 
 export const notificationService = NotificationService.getInstance(); 

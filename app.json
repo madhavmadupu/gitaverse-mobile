@@ -4,7 +4,6 @@
     "slug": "gitaverse-mobile",
     "version": "1.0.0",
     "scheme": "gitaverse-mobile",
-    "projectId": "your-expo-project-id",
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -22,7 +21,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./assets/favicon.png",
           "color": "#F97316"
         }
       ]
@@ -43,7 +42,8 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gitaverse.mobile"
     },
     "android": {
       "package": "com.gitaverse.mobile",
@@ -55,7 +55,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "7a6dc56c-e023-4d69-bd0a-a3b7c0d2dd57"
+        "projectId": "533fd0a1-7137-4d26-b1d0-6eff214833a8"
       }
     }
   }

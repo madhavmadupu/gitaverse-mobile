@@ -69,7 +69,6 @@ class NotificationService {
           importance: Notifications.AndroidImportance.HIGH,
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#FF231F7C',
-          sound: 'temple-bell.wav',
         });
       }
 
@@ -97,7 +96,6 @@ class NotificationService {
         content: {
           title: '🕉️ Your Daily Gita Verse',
           body: "Take a moment to reflect on today's spiritual wisdom",
-          sound: settings.soundEnabled ? 'temple-bell.wav' : undefined,
           data: { type: 'daily-verse' },
         },
         trigger: {
@@ -142,7 +140,6 @@ class NotificationService {
         content: {
           title: 'Test Notification',
           body: 'This is a test notification from Gitaverse',
-          sound: 'temple-bell.wav',
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -160,7 +157,6 @@ class NotificationService {
         content: {
           title: '✨ Verse Completed!',
           body: `Great job! You've completed verse ${verseNumber}. Keep up the spiritual practice!`,
-          sound: 'temple-bell.wav',
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -178,7 +174,6 @@ class NotificationService {
         content: {
           title: '🔥 Streak Achievement!',
           body: `Amazing! You've maintained a ${streakCount}-day streak. Your dedication is inspiring!`,
-          sound: 'temple-bell.wav',
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -203,7 +198,6 @@ class NotificationService {
         content: {
           title: options.title,
           body: options.body,
-          sound: 'temple-bell.wav',
           data: options.data || {},
         },
         trigger: {

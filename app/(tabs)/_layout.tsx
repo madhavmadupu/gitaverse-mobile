@@ -69,19 +69,6 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="progress"
-          options={{
-            title: 'Progress',
-            tabBarIcon: ({ color, focused }) => (
-              <Ionicons
-                name={focused ? "trending-up" : "trending-up-outline"}
-                size={24}
-                color={color}
-              />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="profile"
           options={{
             title: 'Profile',

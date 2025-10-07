@@ -23,8 +23,7 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#F97316",
-          "sounds": ["./assets/temple-bell.wav"]
+          "color": "#F97316"
         }
       ]
     ],
@@ -40,7 +39,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
@@ -49,6 +50,12 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7a6dc56c-e023-4d69-bd0a-a3b7c0d2dd57"
       }
     }
   }

@@ -447,7 +447,6 @@ const scheduleDailyNotification = async (time) => {
     content: {
       title: "🕉️ Today's Gita Wisdom",
       body: "Your daily verse is ready to inspire you",
-      sound: 'temple-bell.wav',
     },
     trigger: {
       hour: time.hour,

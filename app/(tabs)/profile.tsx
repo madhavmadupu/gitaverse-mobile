@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -90,7 +90,7 @@ export default function ProfileScreen() {
     try {
       setIsLoading(true);
       const { data: { user: authUser } } = await supabase.auth.getUser();
-      
+
       if (authUser) {
         const userProfile: UserProfile = {
           id: authUser.id,
@@ -165,29 +165,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await hapticsService.buttonPress();
-              await supabase.auth.signOut();
-            } catch (error) {
-              console.error('Error signing out:', error);
-              await hapticsService.errorAction();
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const bgColor = isDark ? 'bg-gray-900' : 'bg-gray-50';
   const textColor = isDark ? 'text-white' : 'text-gray-900';
   const cardBgColor = isDark ? 'bg-gray-800' : 'bg-white';
@@ -206,16 +183,16 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView className={`flex-1 ${bgColor}`}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      
-      <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-        {/* User Profile Header */}
-        <View className={`${cardBgColor} rounded-2xl p-6 mb-6 shadow-sm`}>
-                      <View className="flex-row items-center mb-4">
-              <View className="w-16 h-16 bg-orange-100 rounded-full items-center justify-center mr-4">
-                <Ionicons name="person" size={32} color="#F97316" />
-              </View>
 
-              <View className="flex-1">
+      <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
+        {/* User Profile Header */}
+        <View className={`rounded-2xl mb-2 pt-6`}>
+          <View className="flex-row items-center mb-4">
+            <View className="w-16 h-16 bg-orange-100 rounded-full items-center justify-center mr-4">
+              <Ionicons name="person" size={32} color="#F97316" />
+            </View>
+
+            <View className="flex-1">
               <Text className={`text-xl font-bold ${textColor}`}>
                 {user?.full_name || user?.username || 'User'}
               </Text>
@@ -230,8 +207,8 @@ export default function ProfileScreen() {
                 </View>
               </View>
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               onPress={() => {
                 hapticsService.navigation();
                 router.push('/edit-profile');
@@ -241,7 +218,7 @@ export default function ProfileScreen() {
               <Ionicons name="create" size={20} color={isDark ? '#9CA3AF' : '#6B7280'} />
             </TouchableOpacity>
           </View>
-          
+
           <View className="flex-row space-x-3">
             <TouchableOpacity
               onPress={() => {
@@ -265,9 +242,9 @@ export default function ProfileScreen() {
         </View>
 
         {/* Streak Card */}
-        <View className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl p-6 mb-6">
+        <View className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-2xl mb-2">
           <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-white text-lg font-semibold">
+            <Text className="text-lg font-semibold">
               Current Streak
             </Text>
             <View className="flex-row items-center">
@@ -275,32 +252,32 @@ export default function ProfileScreen() {
                 onPress={handleShareProgress}
                 className="mr-3 p-2 rounded-full bg-white bg-opacity-20"
               >
-                <Ionicons name="share-outline" size={20} color="#FFFFFF" />
+                <Ionicons name="share-outline" size={20} color="#6B7280" />
               </TouchableOpacity>
-              <Ionicons name="flame" size={24} color="#FFFFFF" />
+              <Ionicons name="flame" size={24} color="#6B7280" />
             </View>
           </View>
-          
+
           <View className="flex-row items-end mb-2">
-            <Text className="text-4xl font-bold text-white mr-2">
+            <Text className="text-4xl font-bold mr-2">
               {stats.currentStreak}
             </Text>
-            <Text className="text-white text-lg mb-1">days</Text>
+            <Text className=" text-lg mb-1">days</Text>
           </View>
-          
-          <Text className="text-orange-100 text-sm">
+
+          <Text className="text-orange-500 text-sm">
             Longest streak: {stats.longestStreak} days
           </Text>
         </View>
 
         {/* Stats Grid */}
-        <View className={`${cardBgColor} rounded-2xl p-6 mb-6 shadow-sm`}>
+        <View>
           <Text className={`text-lg font-semibold ${textColor} mb-4`}>
             Learning Stats
           </Text>
-          
-          <View className="grid grid-cols-2 gap-4">
-            <View className="bg-gray-50 rounded-xl p-4">
+
+          <View className="grid grid-cols-2 gap-2">
+            <View className="bg-gray-50 rounded-xl p-2">
               <View className="flex-row items-center mb-2">
                 <Ionicons name="book" size={20} color="#F97316" />
                 <Text className="text-gray-600 text-sm ml-2">Verses Read</Text>
@@ -309,7 +286,7 @@ export default function ProfileScreen() {
                 {stats.totalVerses}
               </Text>
             </View>
-            
+
             <View className="bg-gray-50 rounded-xl p-4">
               <View className="flex-row items-center mb-2">
                 <Ionicons name="library" size={20} color="#F97316" />
@@ -319,7 +296,7 @@ export default function ProfileScreen() {
                 {stats.totalChapters}/18
               </Text>
             </View>
-            
+
             <View className="bg-gray-50 rounded-xl p-4">
               <View className="flex-row items-center mb-2">
                 <Ionicons name="time" size={20} color="#F97316" />
@@ -329,7 +306,7 @@ export default function ProfileScreen() {
                 {Math.floor(stats.totalTime / 60)}h {stats.totalTime % 60}m
               </Text>
             </View>
-            
+
             <View className="bg-gray-50 rounded-xl p-4">
               <View className="flex-row items-center mb-2">
                 <Ionicons name="timer" size={20} color="#F97316" />
@@ -342,29 +319,89 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Timeframe Selector */}
-        <View className={`${cardBgColor} rounded-2xl p-6 mb-6 shadow-sm`}>
+        {/* Achievements */}
+        <View className={`${cardBgColor} rounded-2xl p-4 mb-2`}>
           <Text className={`text-lg font-semibold ${textColor} mb-4`}>
+            Achievements
+          </Text>
+
+          <View className='flex flex-col gap-2'>
+            {mockAchievements.map((achievement) => {
+              const progressPercentage = getProgressPercentage(
+                achievement.progress,
+                achievement.target
+              );
+
+              return (
+                <View key={achievement.id} className="mb-4 last:mb-0">
+                  <View className="flex-row items-center mb-1">
+                    <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${achievement.isEarned ? 'bg-green-100' : 'bg-gray-100'
+                      }`}>
+                      <Ionicons
+                        name={achievement.icon as any}
+                        size={20}
+                        color={achievement.isEarned ? '#10B981' : '#6B7280'}
+                      />
+                    </View>
+
+                    <View className="flex-1">
+                      <Text className={`font-semibold ${achievement.isEarned ? 'text-green-600' : textColor
+                        }`}>
+                        {achievement.name}
+                      </Text>
+                      <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {achievement.description}
+                      </Text>
+                    </View>
+
+                    {achievement.isEarned && (
+                      <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                    )}
+                  </View>
+
+                  {!achievement.isEarned && (
+                    <View className="ml-12">
+                      <View className="flex-row justify-between items-center mb-1">
+                        <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Progress</Text>
+                        <Text className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                          {achievement.progress}/{achievement.target}
+                        </Text>
+                      </View>
+                      <View className="bg-gray-200 rounded-full h-2">
+                        <View
+                          className="bg-orange-500 h-2 rounded-full"
+                          style={{ width: `${progressPercentage}%` }}
+                        />
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Timeframe Selector */}
+        <View className="bg-white rounded-2xl p-4 mb-2 shadow-sm">
+          <Text className="text-lg font-semibold text-gray-900 mb-4">
             Activity
           </Text>
-          
-          <View className="flex-row space-x-3 mb-4">
+
+          <View className="flex-row gap-2 mb-4">
             {timeframes.map((timeframe) => (
               <TouchableOpacity
                 key={timeframe.id}
-                className={`px-4 py-2 rounded-full ${
-                  selectedTimeframe === timeframe.id
-                    ? 'bg-orange-500'
-                    : 'bg-gray-100'
-                }`}
+                className={`px-4 py-2 rounded-full ${selectedTimeframe === timeframe.id
+                  ? 'bg-orange-500'
+                  : 'bg-gray-100'
+                  }`}
                 onPress={() => setSelectedTimeframe(timeframe.id)}
               >
                 <Text
-                  className={`text-sm font-medium ${
-                    selectedTimeframe === timeframe.id
-                      ? 'text-white'
-                      : 'text-gray-600'
-                  }`}
+                  className={`text-sm font-medium ${selectedTimeframe === timeframe.id
+                    ? 'text-white'
+                    : 'text-gray-600'
+                    }`}
                 >
                   {timeframe.label}
                 </Text>
@@ -379,111 +416,6 @@ export default function ProfileScreen() {
               Activity chart will be displayed here
             </Text>
           </View>
-        </View>
-
-        {/* Achievements */}
-        <View className={`${cardBgColor} rounded-2xl p-6 mb-6 shadow-sm`}>
-          <Text className={`text-lg font-semibold ${textColor} mb-4`}>
-            Achievements
-          </Text>
-          
-          {mockAchievements.map((achievement) => {
-            const progressPercentage = getProgressPercentage(
-              achievement.progress,
-              achievement.target
-            );
-            
-            return (
-              <View key={achievement.id} className="mb-4 last:mb-0">
-                <View className="flex-row items-center mb-2">
-                  <View className={`w-10 h-10 rounded-full items-center justify-center mr-3 ${
-                    achievement.isEarned ? 'bg-green-100' : 'bg-gray-100'
-                  }`}>
-                    <Ionicons
-                      name={achievement.icon as any}
-                      size={20}
-                      color={achievement.isEarned ? '#10B981' : '#6B7280'}
-                    />
-                  </View>
-                  
-                  <View className="flex-1">
-                    <Text className={`font-semibold ${
-                      achievement.isEarned ? 'text-green-600' : textColor
-                    }`}>
-                      {achievement.name}
-                    </Text>
-                    <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {achievement.description}
-                    </Text>
-                  </View>
-                  
-                  {achievement.isEarned && (
-                    <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                  )}
-                </View>
-                
-                {!achievement.isEarned && (
-                  <View className="ml-12">
-                    <View className="flex-row justify-between items-center mb-1">
-                      <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Progress</Text>
-                      <Text className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                        {achievement.progress}/{achievement.target}
-                      </Text>
-                    </View>
-                    <View className="bg-gray-200 rounded-full h-2">
-                      <View
-                        className="bg-orange-500 h-2 rounded-full"
-                        style={{ width: `${progressPercentage}%` }}
-                      />
-                    </View>
-                  </View>
-                )}
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Recent Activity */}
-        <View className={`${cardBgColor} rounded-2xl p-6 mb-6 shadow-sm`}>
-          <Text className={`text-lg font-semibold ${textColor} mb-4`}>
-            Recent Activity
-          </Text>
-          
-          {[1, 2, 3].map((item) => (
-            <View key={item} className="flex-row items-center mb-4 last:mb-0">
-              <View className="w-8 h-8 bg-orange-100 rounded-full items-center justify-center mr-3">
-                <Ionicons name="book" size={16} color="#F97316" />
-              </View>
-              
-              <View className="flex-1">
-                <Text className={`${textColor} font-medium`}>
-                  Completed Chapter 2, Verse {47 - item}
-                </Text>
-                <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                  {item} day{item !== 1 ? 's' : ''} ago
-                </Text>
-              </View>
-              
-              <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                {3 + item}m
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Logout Button */}
-        <View className="mb-6">
-          <TouchableOpacity 
-            className="bg-red-50 py-4 rounded-2xl border border-red-200" 
-            onPress={handleSignOut}
-          >
-            <View className="flex-row items-center justify-center">
-              <Ionicons name="log-out" size={20} color="#EF4444" />
-              <Text className="text-red-600 font-semibold ml-2">
-                Sign Out
-              </Text>
-            </View>
-          </TouchableOpacity>
         </View>
 
         {/* Bottom spacing for tab bar */}
